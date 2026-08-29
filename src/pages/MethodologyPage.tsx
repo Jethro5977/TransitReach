@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { MapPin, Clock, Footprints, Building2, Gauge, ArrowRight, Check, Database, GitBranch, Shield } from 'lucide-react';
-import { useScrollReveal, useStaggeredReveal, usePrefersReducedMotion } from '@/hooks/useAnimations';
-import { METHODOLOGY_STEPS, type MethodologyStep } from '@/data/mockData';
+import { useScrollReveal, useStaggeredReveal, usePrefersReducedMotion } from '@/shared/hooks';
+import { METHODOLOGY_STEPS } from '@/shared/data';
+import type { MethodologyStep } from '@/shared/types/methodology';
 
 const STEP_ICONS: Record<string, typeof MapPin> = {
   MapPin, Clock, Footprints, Building2, Gauge,

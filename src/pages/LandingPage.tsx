@@ -1,12 +1,16 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ArrowRight, Clock, MapPin, Train, Building2, Gauge, Sparkles, TrendingUp, Footprints, Route } from 'lucide-react';
-import { CityMap } from '@/components/CityMap';
-import { ReachPolygon, OriginMarker, ServicePin, WalkingPaths, nearbyStops } from '@/components/MapOverlays';
-import { LocationSearch } from '@/components/ConfigPanel';
-import { generateReachPolygon, polygonArea, mapAreaToKm2 } from '@/utils/geometry';
-import { usePrefersReducedMotion, useCountUp, useScrollReveal } from '@/hooks/useAnimations';
-import { SERVICES, TRANSIT_LINES, CITY_CENTER, SEARCH_RESULTS, type SearchResult, type MapPoint } from '@/data/mockData';
-import type { PageId } from '@/components/GlassUI';
+import { TransitMap, ReachabilityLayer, OriginMarker } from '@/shared/map';
+import { LocationSearch } from '@/features/reachability';
+import { WalkingRouteLayer } from '@/features/first-mile';
+import { findNearbyStops } from '@/features/first-mile/firstMileService';
+import { ServiceMarker } from '@/features/essential-services';
+import { generateReachPolygon, mapAreaToKm2 } from '@/shared/data/mock/reachability';
+import { polygonArea } from '@/shared/lib/spatial';
+import { usePrefersReducedMotion, useCountUp, useScrollReveal } from '@/shared/hooks';
+import { SERVICES, TRANSIT_LINES, CITY_CENTER } from '@/shared/data';
+import type { SearchResult, MapPoint } from '@/shared/types/location';
+import type { PageId } from '@/app/routes';
 
 interface LandingPageProps {
   onNavigate: (page: PageId) => void;
@@ -39,7 +43,7 @@ export function LandingPage({ onNavigate, onSearchSelect }: LandingPageProps) {
     TRANSIT_LINES.forEach(line => line.stops.forEach(stop => stops.push(stop.pos)));
     return stops;
   }, []);
-  const nearby = useMemo(() => nearbyStops(origin, allStops, 70), [origin, allStops]);
+  const nearby = useMemo(() => findNearbyStops(origin, allStops, 70), [origin, allStops]);
   const reachableServices = useMemo(
     () => SERVICES.filter(s => {
       const dx = s.pos.x - origin.x, dy = s.pos.y - origin.y;
@@ -107,13 +111,13 @@ export function LandingPage({ onNavigate, onSearchSelect }: LandingPageProps) {
             {/* Right: animated map preview */}
             <div className="relative">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 float-soft" style={{ aspectRatio: '10/7' }}>
-                <CityMap showTransit={true} showRoads={true} />
+                <TransitMap showTransit={true} showRoads={true} />
                 {/* Overlays */}
                 <svg viewBox="0 0 1000 700" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
-                  {showWalking && <WalkingPaths origin={origin} stops={nearby.slice(0, 5)} animate={!reduced} />}
-                  {showPolygon && <ReachPolygon points={polygon} color="#14b8a6" fillOpacity={0.15} animate={!reduced} />}
+                  {showWalking && <WalkingRouteLayer origin={origin} stops={nearby.slice(0, 5)} animate={!reduced} />}
+                  {showPolygon && <ReachabilityLayer points={polygon} color="#14b8a6" fillOpacity={0.15} animate={!reduced} />}
                   {showPins && reachableServices.slice(0, 8).map((s, i) => (
-                    <ServicePin key={s.id} service={s} animateIn={!reduced} index={i} />
+                    <ServiceMarker key={s.id} service={s} animateIn={!reduced} index={i} />
                   ))}
                   <OriginMarker pos={origin} animate={!reduced} showPulse={showPolygon} />
                 </svg>
