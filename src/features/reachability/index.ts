@@ -1,3 +1,4 @@
+export * from './components/BaseMap';
 export * from './components/LocationSearch';
 export * from './components/TimeBudgetSelector';
 export * from './components/ModeSelector';
@@ -5,3 +6,4 @@ export * from './components/CalculateButton';
 export * from './components/CalcProgress';
 export * from './components/ReachabilitySummary';
 export * from './hooks/useReachability';
+export * from './types';

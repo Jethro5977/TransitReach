@@ -1,93 +1,37 @@
 import { useState } from 'react';
-import { Bookmark, Footprints, Layers, Maximize2, Minimize2, Navigation, Train } from 'lucide-react';
-import { TRANSIT_LINES } from '@/shared/data';
-import { TransitMap, OriginMarker, ReachabilityLayer, Legend } from '@/shared/map';
-import { Drawer, Tooltip } from '@/shared/ui';
-import { usePrefersReducedMotion } from '@/shared/hooks';
-import type { SearchResult } from '@/shared/types/location';
+import { Crosshair, Maximize2, Minimize2, X } from 'lucide-react';
+import { Tooltip } from '@/shared/ui';
 import {
+  BaseMap,
   LocationSearch,
   TimeBudgetSelector,
-  ModeSelector,
-  CalculateButton,
-  CalcProgress,
-  ReachabilitySummary,
   useReachability,
+  type RailStop,
 } from '@/features/reachability';
-import { WalkingRouteLayer, useFirstMile } from '@/features/first-mile';
-import {
-  ServiceDetail,
-  ServiceFilters,
-  ServiceMarker,
-  useEssentialServices,
-} from '@/features/essential-services';
+import { formatCoord, STUDY_AREA_BUFFER_KM } from '@/features/reachability/reachabilityService';
+import { linesForStop } from '@/shared/data/adapters/gtfsAdapter';
 
 interface MapPageProps {
-  initialLocation: SearchResult | null;
+  initialLocation: RailStop | null;
   onToast: (message: string, icon?: string) => void;
 }
 
 export function MapPage({ initialLocation, onToast }: MapPageProps) {
-  const reduced = usePrefersReducedMotion();
   const [configOpen, setConfigOpen] = useState(true);
-  const [saved, setSaved] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
   const reach = useReachability(initialLocation, onToast);
-  const { nearbyStops } = useFirstMile(reach.origin, reach.modes);
-  const services = useEssentialServices(reach.polygon, reach.hasResults);
-
-  const handleSave = () => {
-    if (!reach.location) return;
-    setSaved(prev => !prev);
-    if (!saved) onToast(`${reach.location.name} saved`, '★');
-  };
 
   return (
-    <div className="fixed inset-0 pt-16 overflow-hidden">
+    // top-16 rather than pt-16: an absolutely positioned child resolves inset-0 against
+    // the padding box, so padding here would let the map slide under the navbar.
+    <div className="fixed left-0 right-0 bottom-0 top-16 overflow-hidden">
       <div className="absolute inset-0">
-        <TransitMap
-          showTransit
-          showRoads
-          highlightedLines={reach.highlightedLines}
-          fadedLines={reach.hasResults ? TRANSIT_LINES.filter(line => !reach.highlightedLines.includes(line.id)).map(line => line.id) : []}
-        />
+        <BaseMap origin={reach.origin} onMapClick={reach.selectPoint} />
       </div>
 
-      <svg viewBox="0 0 1000 700" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="xMidYMid slice">
-        {reach.showWalking && <WalkingRouteLayer origin={reach.origin} stops={nearbyStops.slice(0, 6)} animate={!reduced} />}
-        {reach.showPolygon && (
-          <g
-            onMouseEnter={() => reach.setHoveredPolygon(true)}
-            onMouseLeave={() => reach.setHoveredPolygon(false)}
-            style={{ pointerEvents: 'auto' }}
-          >
-            <ReachabilityLayer points={reach.polygon} color="#14b8a6" fillOpacity={0.18} animate={!reduced} hovered={reach.hoveredPolygon} band="main" />
-          </g>
-        )}
-        {reach.showPins && services.reachableServices.map((service, i) => (
-          <ServiceMarker
-            key={service.id}
-            service={service}
-            animateIn={!reduced}
-            index={i}
-            hovered={services.hoveredService?.id === service.id}
-            selected={services.selectedService?.id === service.id}
-            dimmed={services.selectedService !== null && services.selectedService.id !== service.id}
-            onClick={() => {
-              services.setSelectedService(service);
-              setDrawerOpen(true);
-            }}
-            onHover={services.setHoveredService}
-          />
-        ))}
-        {reach.location && <OriginMarker pos={reach.origin} animate={!reduced} showPulse={reach.showPolygon} />}
-      </svg>
-
-      <div className={`absolute top-20 left-4 sm:left-6 transition-all duration-300 ease-out ${configOpen ? 'w-[340px] max-w-[calc(100vw-2rem)]' : 'w-12'}`}>
+      <div className={`absolute top-4 left-4 sm:left-6 z-[500] transition-all duration-300 ease-out ${configOpen ? 'w-[340px] max-w-[calc(100vw-2rem)]' : 'w-12'}`}>
         <div className="glass p-4 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            {configOpen && <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Configuration</h2>}
+            {configOpen && <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Starting Point</h2>}
             <Tooltip content={configOpen ? 'Collapse' : 'Expand'}>
               <button onClick={() => setConfigOpen(prev => !prev)} className="btn-icon ml-auto" style={{ width: 32, height: 32 }}>
                 {configOpen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -97,77 +41,98 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
 
           {configOpen && (
             <div className="space-y-4 fade-in">
-              <div>
-                <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Starting Location</label>
-                <LocationSearch onSelect={reach.selectLocation} selected={reach.location} compact />
+              <LocationSearch
+                onSelect={reach.selectStop}
+                selected={reach.origin?.stop ?? null}
+                compact
+              />
+
+              <div className="flex items-center gap-2">
+                {/* AC 1.1.4 — the permission is requested on this tap and nowhere else. */}
+                <button
+                  onClick={reach.requestDeviceLocation}
+                  className="btn-secondary inline-flex items-center gap-2 text-xs py-2 px-3"
+                >
+                  <Crosshair size={14} />
+                  Use my location
+                </button>
+                {reach.origin && (
+                  <button
+                    onClick={reach.clearOrigin}
+                    className="btn-secondary inline-flex items-center gap-1.5 text-xs py-2 px-3"
+                  >
+                    <X size={14} />
+                    Clear
+                  </button>
+                )}
               </div>
+
+              {reach.origin && <OriginReadout origin={reach.origin} />}
+
+              {!reach.origin && (
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Search by station or stop name, or tap the map to choose a starting point.
+                </p>
+              )}
+
               <div>
                 <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Time Budget</label>
                 <TimeBudgetSelector value={reach.timeBudget} onChange={reach.changeTimeBudget} />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Transport Modes</label>
-                <ModeSelector
-                  modes={[
-                    { id: 'walk', label: 'Walk', icon: Footprints },
-                    { id: 'bus', label: 'Bus', icon: Navigation },
-                    { id: 'lrt', label: 'LRT', icon: Train },
-                    { id: 'brt', label: 'BRT', icon: Train },
-                    { id: 'mrt', label: 'MRT', icon: Train },
-                  ]}
-                  selected={reach.modes}
-                  onToggle={reach.toggleMode}
-                />
-              </div>
-              <CalculateButton onClick={reach.calculate} calculating={reach.calculating} disabled={!reach.location} />
-              {reach.calculating && <CalcProgress step={reach.calcStep} steps={reach.CALC_STEPS} />}
             </div>
           )}
         </div>
       </div>
 
-      {reach.hasResults && !reach.calculating && (
-        <ReachabilitySummary areaKm2={reach.areaKm2} serviceCount={services.reachableServices.length} stopCount={nearbyStops.length} />
-      )}
+      {configOpen && <CoveredAreaNote />}
+    </div>
+  );
+}
 
-      {reach.hasResults && (
-        <div className="absolute bottom-4 left-4 sm:left-6 max-w-[calc(100vw-2rem)]">
-          <div className="glass p-3.5 max-w-md">
-            <div className="flex items-center gap-2 mb-2.5">
-              <Layers size={14} className="text-teal-600" />
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Service Categories</span>
-            </div>
-            <ServiceFilters selected={services.selectedCategories} onToggle={services.toggleCategory} counts={services.categoryCounts} compact />
+/**
+ * AC 1.1.2 — a map-selected point shows its coordinate to 5 decimal places. A stop shows
+ * the exact feed name and the lines serving it. No walking distance, walking time or
+ * nearest stop is produced here; those belong to the First-Mile Walking Access epic.
+ */
+function OriginReadout({ origin }: { origin: NonNullable<ReturnType<typeof useReachability>['origin']> }) {
+  const label =
+    origin.source === 'stop' ? 'Selected stop'
+    : origin.source === 'device' ? 'Your location'
+    : 'Selected point';
+
+  return (
+    <div className="glass-chip rounded-xl px-3 py-2.5">
+      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</div>
+      {origin.stop ? (
+        <>
+          <div className="text-sm font-semibold text-slate-800">{origin.stop.name}</div>
+          <div className="text-xs text-slate-500">
+            {linesForStop(origin.stop).map(line => line.longName).join(' · ')}
           </div>
-        </div>
+        </>
+      ) : (
+        <div className="text-sm font-mono text-slate-700">{formatCoord(origin.at)}</div>
       )}
+    </div>
+  );
+}
 
-      {reach.hasResults && (
-        <div className="absolute bottom-4 right-4 sm:right-6 hidden md:block">
-          <Legend items={[
-            { label: 'Reachable area', color: '#14b8a6', type: 'fill' },
-            { label: 'Walking path', color: '#14b8a6', type: 'dashed' },
-            { label: 'LRT line', color: '#e11d48' },
-            { label: 'BRT line', color: '#2563eb' },
-            { label: 'MRT line', color: '#7c3aed' },
-            { label: 'Bus route', color: '#f59e0b' },
-          ]} />
-        </div>
-      )}
-
-      {reach.location && (
-        <div className="absolute top-20 right-4 sm:right-6 md:hidden">
-          <Tooltip content={saved ? 'Saved' : 'Save place'}>
-            <button onClick={handleSave} className="btn-icon" style={{ background: saved ? 'rgba(20,184,166,0.15)' : undefined }}>
-              <Bookmark size={18} fill={saved ? '#0d9488' : 'none'} color={saved ? '#0d9488' : undefined} />
-            </button>
-          </Tooltip>
-        </div>
-      )}
-
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={services.selectedService?.name}>
-        {services.selectedService && <ServiceDetail service={services.selectedService} />}
-      </Drawer>
+/**
+ * The study-area bounding box is not yet agreed — it depends on the mode-scope decision
+ * and the extent of the bus feed, neither of which is settled. Rather than fill the value
+ * in with a guess, the box is derived from the loaded rail network and its basis is
+ * stated here, so the reader can see what "covered area" currently means.
+ */
+function CoveredAreaNote() {
+  return (
+    <div className="absolute bottom-4 left-4 sm:left-6 z-[500] max-w-[calc(100vw-2rem)]">
+      <div className="glass p-3 max-w-sm">
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          <span className="font-semibold text-slate-700">Covered area</span> is the extent of the
+          loaded rail network plus {STUDY_AREA_BUFFER_KM} km. This is provisional — the study-area
+          boundary has not been agreed and depends on the bus feed, which is not yet loaded.
+        </p>
+      </div>
     </div>
   );
 }

@@ -11,11 +11,11 @@ import { TimeComparisonPage } from '@/pages/future/TimeComparisonPage';
 import { ScenarioPage } from '@/pages/future/ScenarioPage';
 import { TypologyPage } from '@/pages/future/TypologyPage';
 import { MethodologyPage } from '@/pages/MethodologyPage';
-import type { SearchResult } from '@/shared/types/location';
+import type { RailStop } from '@/features/reachability';
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>('landing');
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [searchResult, setSearchResult] = useState<RailStop | null>(null);
   const { toasts, addToast, removeToast } = useToasts();
 
   const handleNavigate = (page: PageId) => {
@@ -23,8 +23,8 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSearchSelect = (result: SearchResult) => {
-    setSearchResult(result);
+  const handleSearchSelect = (stop: RailStop) => {
+    setSearchResult(stop);
   };
 
   return (

@@ -1,122 +1,79 @@
-import { useMemo, useState } from 'react';
-import { CITY_CENTER } from '@/shared/data';
-import type { SearchResult } from '@/shared/types/location';
-import { usePrefersReducedMotion } from '@/shared/hooks';
-import { calculatePrototypeReachability, getHighlightedTransitLineIds } from '../reachabilityService';
+import { useState } from 'react';
+import type { LatLng, Origin, RailStop } from '../types';
+import { isInStudyArea } from '../reachabilityService';
 
-const CALC_STEPS = [
-  'Finding walkable transit stops...',
-  'Checking scheduled connections...',
-  'Estimating transfers...',
-  'Mapping essential services...',
-];
+/** AC 1.1.2 — a click outside the covered area is rejected with this message. */
+const OUTSIDE_AREA = 'Selected point is outside the covered area';
+
+/** AC 1.1.4 — device location is optional; nothing is disabled when it is unavailable. */
+const LOCATION_UNAVAILABLE = 'Location unavailable. Search for a stop or tap the map instead.';
+const LOCATION_OUTSIDE_AREA = 'Your location is outside the covered area';
+
+/** AC 1.2.1 — 30 min is selected before any starting point has been chosen. */
+const DEFAULT_TIME_BUDGET = 30;
 
 export function useReachability(
-  initialLocation: SearchResult | null,
+  initialStop: RailStop | null,
   onToast: (message: string, icon?: string) => void,
 ) {
-  const reduced = usePrefersReducedMotion();
-  const [location, setLocation] = useState<SearchResult | null>(initialLocation);
-  const [timeBudget, setTimeBudget] = useState(30);
-  const [modes, setModes] = useState<Set<string>>(new Set(['walk', 'bus', 'lrt', 'brt']));
-  const [calculating, setCalculating] = useState(false);
-  const [calcStep, setCalcStep] = useState(-1);
-  const [hasResults, setHasResults] = useState(false);
-  const [showWalking, setShowWalking] = useState(false);
-  const [showPins, setShowPins] = useState(false);
-  const [showPolygon, setShowPolygon] = useState(false);
-  const [hoveredPolygon, setHoveredPolygon] = useState(false);
-
-  const origin = location?.pos ?? CITY_CENTER;
-  const { polygon, areaKm2 } = useMemo(
-    () => calculatePrototypeReachability(origin, timeBudget),
-    [origin, timeBudget],
+  const [origin, setOrigin] = useState<Origin | null>(
+    initialStop ? { at: { lat: initialStop.lat, lon: initialStop.lon }, source: 'stop', stop: initialStop } : null,
   );
-  const highlightedLines = useMemo(
-    () => getHighlightedTransitLineIds(origin, hasResults),
-    [origin, hasResults],
-  );
+  const [timeBudget, setTimeBudget] = useState(DEFAULT_TIME_BUDGET);
 
-  const selectLocation = (next: SearchResult) => {
-    setLocation(next);
-    setHasResults(false);
-    setShowWalking(false);
-    setShowPolygon(false);
-    setShowPins(false);
+  /** Selecting a stop places the origin at its stop_lat / stop_lon from the feed. */
+  const selectStop = (stop: RailStop) => {
+    setOrigin({ at: { lat: stop.lat, lon: stop.lon }, source: 'stop', stop });
   };
 
-  const changeTimeBudget = (minutes: number) => {
-    setTimeBudget(minutes);
-    if (hasResults) {
-      setShowPolygon(false);
-      setShowPins(false);
-      setTimeout(() => {
-        setShowPolygon(true);
-        setShowPins(true);
-      }, 100);
-    }
-  };
-
-  const toggleMode = (id: string) => {
-    setModes(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const calculate = () => {
-    if (!location) {
-      onToast('Please select a starting location', '!');
+  /**
+   * AC 1.1.2 — sets the origin at an arbitrary in-area coordinate. A stop need not be
+   * nearby. Out of area, the previous origin is retained rather than cleared.
+   */
+  const selectPoint = (at: LatLng) => {
+    if (!isInStudyArea(at)) {
+      onToast(OUTSIDE_AREA, '!');
       return;
     }
-
-    setCalculating(true);
-    setCalcStep(0);
-    setShowWalking(false);
-    setShowPolygon(false);
-    setShowPins(false);
-
-    const stepInterval = reduced ? 50 : 200;
-    let step = 0;
-    const stepTimer = window.setInterval(() => {
-      step += 1;
-      setCalcStep(step);
-      if (step >= CALC_STEPS.length) window.clearInterval(stepTimer);
-    }, stepInterval);
-
-    window.setTimeout(() => setShowWalking(true), reduced ? 50 : 300);
-    window.setTimeout(() => setShowPolygon(true), reduced ? 100 : 600);
-    window.setTimeout(() => setShowPins(true), reduced ? 150 : 1000);
-
-    window.setTimeout(() => {
-      setCalculating(false);
-      setHasResults(true);
-      onToast(`Reach calculated for ${location.name}`, '✓');
-    }, reduced ? 200 : 1100);
+    setOrigin({ at, source: 'map' });
   };
 
+  /**
+   * AC 1.1.4 — the permission is requested here and nowhere else, so nothing prompts on
+   * page load. The position sets the origin directly, with no confirmation step. It is
+   * held in state only: never stored beyond the session, never sent anywhere.
+   */
+  const requestDeviceLocation = () => {
+    if (!('geolocation' in navigator)) {
+      onToast(LOCATION_UNAVAILABLE, '!');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const at = { lat: position.coords.latitude, lon: position.coords.longitude };
+        if (!isInStudyArea(at)) {
+          onToast(LOCATION_OUTSIDE_AREA, '!');
+          return;
+        }
+        setOrigin({ at, source: 'device' });
+      },
+      () => onToast(LOCATION_UNAVAILABLE, '!'),
+    );
+  };
+
+  /** AC 1.1.5 — clears the starting point and returns the map to its default view. */
+  const clearOrigin = () => setOrigin(null);
+
+  /** AC 1.1.5 / AC 1.2.2 — the budget survives a change of starting point, and vice versa. */
+  const changeTimeBudget = (minutes: number) => setTimeBudget(minutes);
+
   return {
-    CALC_STEPS,
-    location,
-    timeBudget,
-    modes,
-    calculating,
-    calcStep,
-    hasResults,
-    showWalking,
-    showPins,
-    showPolygon,
-    hoveredPolygon,
     origin,
-    polygon,
-    areaKm2,
-    highlightedLines,
-    setHoveredPolygon,
-    selectLocation,
+    timeBudget,
+    selectStop,
+    selectPoint,
+    requestDeviceLocation,
+    clearOrigin,
     changeTimeBudget,
-    toggleMode,
-    calculate,
   };
 }

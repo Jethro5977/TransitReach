@@ -1,11 +1,25 @@
-import { useState, type ReactNode } from 'react';
-import { Search, MapPin, Train, Building2 } from 'lucide-react';
-import { SEARCH_RESULTS } from '@/shared/data';
-import type { SearchResult } from '@/shared/types/location';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Search, MapPin, Train } from 'lucide-react';
+import { loadRailStops, linesForStop } from '@/shared/data/adapters/gtfsAdapter';
+import type { RailStop } from '../types';
+import { searchStops, MIN_QUERY_LENGTH } from '../reachabilityService';
+
+/**
+ * Station and stop search.
+ *
+ * AC 1.1.3 — this component performs no geocoding of any kind and issues no network
+ * request. A string that looks like an address ("Jalan ...", a postcode, a unit number)
+ * is an ordinary non-match and gets no special handling. Do not add an address lookup,
+ * a "did you mean" hint, or a geocoding fallback here.
+ */
+
+const PLACEHOLDER = 'Search station or stop';
+const NO_MATCH = 'No station or stop matches that name';
+const HELPER = 'Search by station or stop name, or tap the map to choose a starting point.';
 
 interface LocationSearchProps {
-  onSelect: (result: SearchResult) => void;
-  selected?: SearchResult | null;
+  onSelect: (stop: RailStop) => void;
+  selected?: RailStop | null;
   compact?: boolean;
 }
 
@@ -14,17 +28,18 @@ export function LocationSearch({ onSelect, selected, compact = false }: Location
   const [focused, setFocused] = useState(false);
   const [highlightedIdx, setHighlightedIdx] = useState(-1);
 
-  const results = query.length > 0
-    ? SEARCH_RESULTS.filter(r =>
-        r.name.toLowerCase().includes(query.toLowerCase()) ||
-        r.subtitle.toLowerCase().includes(query.toLowerCase())
-      )
-    : SEARCH_RESULTS;
+  const stops = useMemo(() => loadRailStops(), []);
+  const results = useMemo(() => searchStops(query, stops), [query, stops]);
 
-  const handleSelect = (result: SearchResult) => {
-    onSelect(result);
-    setQuery(result.name);
+  // Below the minimum query length the field is inert: no results, no "no match".
+  const searching = query.trim().length >= MIN_QUERY_LENGTH;
+
+  const handleSelect = (stop: RailStop) => {
+    onSelect(stop);
+    // AC 1.1.1 — the exact feed stop name is written into the field.
+    setQuery(stop.name);
     setFocused(false);
+    setHighlightedIdx(-1);
   };
 
   return (
@@ -34,7 +49,7 @@ export function LocationSearch({ onSelect, selected, compact = false }: Location
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); setHighlightedIdx(-1); }}
           onFocus={() => setFocused(true)}
           onBlur={() => setTimeout(() => setFocused(false), 150)}
           onKeyDown={(e) => {
@@ -48,42 +63,43 @@ export function LocationSearch({ onSelect, selected, compact = false }: Location
               handleSelect(results[highlightedIdx]);
             }
           }}
-          placeholder="Search area or station..."
+          placeholder={PLACEHOLDER}
           className="flex-1 bg-transparent outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400"
         />
-        {selected && (
-          <MapPin size={16} className="text-teal-600" />
-        )}
+        {selected && <MapPin size={16} className="text-teal-600" />}
       </div>
 
-      {focused && results.length > 0 && (
-        <div className="absolute top-full mt-2 left-0 right-0 glass-strong p-2 z-50 fade-slide-up max-h-64 overflow-y-auto scrollbar-thin">
-          {results.map((result, idx) => (
+      {focused && (
+        <div className="absolute top-full mt-2 left-0 right-0 glass-strong p-2 z-[1000] fade-slide-up max-h-64 overflow-y-auto scrollbar-thin">
+          {results.map((stop, idx) => (
             <button
-              key={result.id}
+              key={stop.stopId}
               onMouseEnter={() => setHighlightedIdx(idx)}
-              onClick={() => handleSelect(result)}
+              onClick={() => handleSelect(stop)}
               className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
                 highlightedIdx === idx ? 'bg-teal-50' : 'hover:bg-slate-50'
               }`}
             >
-              <div className="mt-0.5">
-                {result.type === 'station' ? (
-                  <Train size={16} className="text-blue-500" />
-                ) : result.type === 'landmark' ? (
-                  <Building2 size={16} className="text-amber-500" />
-                ) : (
-                  <MapPin size={16} className="text-teal-600" />
-                )}
-              </div>
+              <Train size={16} className="text-blue-500 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-800 truncate">
-                  {highlightName(result.name, query)}
+                  {highlightName(stop.name, query)}
                 </div>
-                <div className="text-xs text-slate-500 truncate">{result.subtitle}</div>
+                {/* AC 1.1.1 — each row shows the line or lines serving the stop. */}
+                <div className="text-xs text-slate-500 truncate">
+                  {linesForStop(stop).map(line => line.longName).join(' · ')}
+                </div>
               </div>
             </button>
           ))}
+
+          {searching && results.length === 0 && (
+            <div className="px-3 py-2.5 text-sm text-slate-600">{NO_MATCH}</div>
+          )}
+
+          {results.length === 0 && (
+            <div className="px-3 py-2 text-xs text-slate-500">{HELPER}</div>
+          )}
         </div>
       )}
     </div>
@@ -91,14 +107,15 @@ export function LocationSearch({ onSelect, selected, compact = false }: Location
 }
 
 function highlightName(name: string, query: string): ReactNode {
-  if (!query) return name;
-  const idx = name.toLowerCase().indexOf(query.toLowerCase());
+  const needle = query.trim();
+  if (!needle) return name;
+  const idx = name.toLowerCase().indexOf(needle.toLowerCase());
   if (idx < 0) return name;
   return (
     <>
       {name.slice(0, idx)}
-      <span className="text-teal-700 font-bold">{name.slice(idx, idx + query.length)}</span>
-      {name.slice(idx + query.length)}
+      <span className="text-teal-700 font-bold">{name.slice(idx, idx + needle.length)}</span>
+      {name.slice(idx + needle.length)}
     </>
   );
 }

@@ -9,17 +9,18 @@ import { generateReachPolygon, mapAreaToKm2 } from '@/shared/data/mock/reachabil
 import { polygonArea } from '@/shared/lib/spatial';
 import { usePrefersReducedMotion, useCountUp, useScrollReveal } from '@/shared/hooks';
 import { SERVICES, TRANSIT_LINES, CITY_CENTER } from '@/shared/data';
-import type { SearchResult, MapPoint } from '@/shared/types/location';
+import type { RailStop } from '@/features/reachability';
+import type { MapPoint } from '@/shared/types/location';
 import type { PageId } from '@/app/routes';
 
 interface LandingPageProps {
   onNavigate: (page: PageId) => void;
-  onSearchSelect: (result: SearchResult) => void;
+  onSearchSelect: (stop: RailStop) => void;
 }
 
 export function LandingPage({ onNavigate, onSearchSelect }: LandingPageProps) {
   const reduced = usePrefersReducedMotion();
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [searchResult, setSearchResult] = useState<RailStop | null>(null);
   const [showPolygon, setShowPolygon] = useState(false);
   const [showPins, setShowPins] = useState(false);
   const [showWalking, setShowWalking] = useState(false);
@@ -34,7 +35,9 @@ export function LandingPage({ onNavigate, onSearchSelect }: LandingPageProps) {
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  const origin = searchResult?.pos ?? CITY_CENTER;
+  // The hero preview stays on the prototype canvas, so it cannot follow a real stop
+  // coordinate. Selecting a stop here hands it to the map page as the starting point.
+  const origin = CITY_CENTER;
   const polygon = useMemo(() => generateReachPolygon(origin, 30, 42), [origin]);
   const areaKm2 = useMemo(() => mapAreaToKm2(polygonArea(polygon)), [polygon]);
 
@@ -52,9 +55,9 @@ export function LandingPage({ onNavigate, onSearchSelect }: LandingPageProps) {
     [origin]
   );
 
-  const handleSearch = (result: SearchResult) => {
-    setSearchResult(result);
-    onSearchSelect(result);
+  const handleSearch = (stop: RailStop) => {
+    setSearchResult(stop);
+    onSearchSelect(stop);
     setShowPolygon(false);
     setShowPins(false);
     setShowWalking(false);
