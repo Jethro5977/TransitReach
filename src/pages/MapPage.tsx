@@ -8,7 +8,12 @@ import {
   useReachability,
   type RailStop,
 } from '@/features/reachability';
-import { formatCoord, STUDY_AREA_BUFFER_KM } from '@/features/reachability/reachabilityService';
+import {
+  formatCoord,
+  STUDY_AREA_BUFFER_KM,
+  BUDGET_COMPONENTS,
+  BUDGET_ASSUMPTIONS,
+} from '@/features/reachability/reachabilityService';
 import { linesForStop } from '@/shared/data/adapters/gtfsAdapter';
 
 interface MapPageProps {
@@ -28,8 +33,11 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
         <BaseMap origin={reach.origin} onMapClick={reach.selectPoint} />
       </div>
 
-      <div className={`absolute top-4 left-4 sm:left-6 z-[500] transition-all duration-300 ease-out ${configOpen ? 'w-[340px] max-w-[calc(100vw-2rem)]' : 'w-12'}`}>
-        <div className="glass p-4 overflow-hidden">
+      {/* The budget composition note makes the panel tall enough to overflow a short
+          viewport, so it scrolls internally rather than running off the bottom — the
+          note has to stay reachable to satisfy AC 1.2.3. */}
+      <div className={`absolute top-4 left-4 sm:left-6 z-[500] max-h-[calc(100%-2rem)] transition-all duration-300 ease-out ${configOpen ? 'w-[340px] max-w-[calc(100vw-2rem)]' : 'w-12'}`}>
+        <div className="glass p-4 max-h-[calc(100vh-6rem)] overflow-y-auto overflow-x-hidden scrollbar-thin">
           <div className="flex items-center justify-between mb-3">
             {configOpen && <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Starting Point</h2>}
             <Tooltip content={configOpen ? 'Collapse' : 'Expand'}>
@@ -79,6 +87,8 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
                 <label className="text-xs font-semibold text-slate-500 mb-1.5 block">Time Budget</label>
                 <TimeBudgetSelector value={reach.timeBudget} onChange={reach.changeTimeBudget} />
               </div>
+
+              <BudgetCompositionNote />
             </div>
           )}
         </div>
@@ -113,6 +123,56 @@ function OriginReadout({ origin }: { origin: NonNullable<ReturnType<typeof useRe
       ) : (
         <div className="text-sm font-mono text-slate-700">{formatCoord(origin.at)}</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * AC 1.2.3 — what the travel time budget is spent on.
+ *
+ * The note is always visible rather than behind a control, because the criterion asks for
+ * a *visible* note enumerating the five components. Every component is listed whether or
+ * not it is modelled: a component that is not yet modelled says so rather than being
+ * dropped, and no blocked value is shown as a number it does not have.
+ */
+function BudgetCompositionNote() {
+  return (
+    <div className="glass-chip rounded-xl px-3 py-2.5">
+      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+        What the budget is spent on
+      </div>
+
+      <ul className="space-y-1.5">
+        {BUDGET_COMPONENTS.map(component => (
+          <li key={component.label} className="text-[11px] leading-snug">
+            <span className="font-semibold text-slate-700">{component.label}</span>
+            {component.estimate && (
+              <span className="ml-1.5 px-1 py-px rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase tracking-wide">
+                Estimate
+              </span>
+            )}
+            <div className="text-slate-500">
+              {component.status}
+              {component.owner && <span className="text-slate-400"> ({component.owner})</span>}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-2 pt-2 border-t border-slate-200/70 space-y-1">
+        {BUDGET_ASSUMPTIONS.map(assumption => (
+          <div key={assumption.label} className="text-[11px] leading-snug">
+            <span className="font-semibold text-slate-700">{assumption.label}:</span>{' '}
+            <span className="text-slate-500">{assumption.status}</span>
+            <span className="text-slate-400"> ({assumption.owner})</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-2 text-[11px] leading-snug text-slate-500">
+        No reachable area is computed yet, so these are the components the budget will be spent
+        on rather than a breakdown of a result.
+      </p>
     </div>
   );
 }

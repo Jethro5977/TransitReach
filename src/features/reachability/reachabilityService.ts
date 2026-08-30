@@ -74,6 +74,77 @@ export function formatCoord(p: LatLng): string {
   return `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`;
 }
 
+/**
+ * AC 1.2.3 — the five components the travel time budget is spent on.
+ *
+ * Every component the budget covers is listed whether or not it is modelled yet. A
+ * component that is not yet modelled says so; none is silently excluded, and no blocked
+ * value is filled in with a plausible-looking number. `owner` names the epic or decision
+ * that has to resolve the component before it can be modelled.
+ */
+export interface BudgetComponent {
+  label: string;
+  /** Marks a component whose value is inferred rather than published. */
+  estimate?: boolean;
+  modelled: boolean;
+  /** What the component currently contributes, in plain words. */
+  status: string;
+  /** Who resolves it. Absent once the component is modelled. */
+  owner?: string;
+}
+
+export const BUDGET_COMPONENTS: BudgetComponent[] = [
+  {
+    label: 'Walking to the first stop',
+    modelled: false,
+    status: 'Not yet modelled — no walking speed is set and no street network is routed over.',
+    owner: 'routing engine + First-Mile Walking Access',
+  },
+  {
+    label: 'Waiting for the first service',
+    modelled: false,
+    status:
+      'Not yet modelled — the feed publishes headways of 3 min at peak and 5 min off-peak, ' +
+      'but the rule for turning a headway into an expected wait has not been agreed.',
+    owner: 'team decision',
+  },
+  {
+    label: 'In-vehicle time',
+    modelled: false,
+    status: 'Available from the feed\'s scheduled stop times, but not yet computed.',
+  },
+  {
+    label: 'Interchange time between legs',
+    estimate: true,
+    modelled: false,
+    status: 'Estimate — value not yet set. The transit data publishes no interchange times at all.',
+    owner: 'Interchange Time Estimation',
+  },
+  {
+    label: 'Walking from the last stop to the destination',
+    modelled: false,
+    status: 'Not yet modelled — same dependency as the first-stop walk.',
+    owner: 'routing engine + First-Mile Walking Access',
+  },
+];
+
+/**
+ * Assumptions the budget rests on that are not themselves components, and are unresolved.
+ * Named rather than omitted, for the same reason as the components above.
+ */
+export const BUDGET_ASSUMPTIONS = [
+  {
+    label: 'Walking speed',
+    status: 'Not yet set',
+    owner: 'routing engine + First-Mile Walking Access',
+  },
+  {
+    label: 'Departure time',
+    status: 'Not yet set — every epic that computes reachability must share one default',
+    owner: 'team decision',
+  },
+];
+
 export function calculatePrototypeReachability(origin: MapPoint, timeBudgetMinutes: number) {
   const polygon = generateReachPolygon(origin, timeBudgetMinutes, 42);
   return { polygon, areaKm2: mapAreaToKm2(polygonArea(polygon)) };
