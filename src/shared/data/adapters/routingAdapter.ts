@@ -76,6 +76,30 @@ export class RoutingUnavailableError extends Error {
   }
 }
 
+export class RoutingTimeoutError extends Error {
+  constructor(readonly limitMs: number) {
+    super(`Reachability computation exceeded ${limitMs} ms.`);
+    this.name = 'RoutingTimeoutError';
+  }
+}
+
+/**
+ * How long a computation may run before it is abandoned.
+ *
+ * AC 1.3.2 left this value blocked, pending a benchmark of a routing engine that had not
+ * been stood up. It has been. Measured against the local instance over 36 runs — 9 origins
+ * spread across the network × the four budgets, timing both isochrones in parallel exactly
+ * as the app issues them:
+ *
+ *     p50 460 ms   p95 1075 ms   max 1089 ms
+ *
+ * 15 s is roughly 14× the observed maximum. The headroom is deliberate: those figures come
+ * from a local instance with no network in the path, and the deployed engine will sit
+ * behind real latency on a smaller machine than this one. Re-measure once it is hosted —
+ * this number should come down, not stay at a figure chosen to be safe for an unknown.
+ */
+export const COMPUTATION_TIMEOUT_MS = 15_000;
+
 /** Guards the walking-only sentinel against the feed growing a funicular. */
 function assertSentinelUnused(): void {
   const modes = loadRailFeedMetadata()
@@ -189,10 +213,32 @@ export async function computeReachability(
 ): Promise<ReachabilityComputation> {
   assertSentinelUnused();
 
-  const [full, walkOnly] = await Promise.all([
-    fetchIsochrone(origin, budgetMinutes, TRANSIT_MODES, signal),
-    fetchIsochrone(origin, budgetMinutes, WALK_ONLY_MODES, signal),
-  ]);
+  // The caller's signal (a superseded run) and the time limit both cancel the requests,
+  // but they are different outcomes: one is discarded silently, the other is reported.
+  // `timedOut` is what tells them apart once the fetch has already rejected as aborted.
+  const inner = new AbortController();
+  let timedOut = false;
+  const abortInner = () => inner.abort();
+  signal.addEventListener('abort', abortInner);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    inner.abort();
+  }, COMPUTATION_TIMEOUT_MS);
+
+  let full: IsochroneRegion[];
+  let walkOnly: IsochroneRegion[];
+  try {
+    [full, walkOnly] = await Promise.all([
+      fetchIsochrone(origin, budgetMinutes, TRANSIT_MODES, inner.signal),
+      fetchIsochrone(origin, budgetMinutes, WALK_ONLY_MODES, inner.signal),
+    ]);
+  } catch (error) {
+    if (timedOut) throw new RoutingTimeoutError(COMPUTATION_TIMEOUT_MS);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener('abort', abortInner);
+  }
 
   const fullArea = totalAreaKm2(full);
   const walkArea = totalAreaKm2(walkOnly);

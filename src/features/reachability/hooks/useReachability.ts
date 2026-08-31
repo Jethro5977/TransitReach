@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { computeReachability, type IsochroneResult } from '@/shared/data/adapters/routingAdapter';
+import {
+  computeReachability,
+  RoutingTimeoutError,
+  type IsochroneResult,
+} from '@/shared/data/adapters/routingAdapter';
 import type { LatLng, Origin, RailStop } from '../types';
 import { isInStudyArea } from '../reachabilityService';
 
@@ -25,7 +29,9 @@ export type ReachabilityState =
   | { status: 'idle' }
   | { status: 'computing'; budgetMinutes: number }
   | { status: 'ready'; budgetMinutes: number; result: IsochroneResult; walkingOnly: boolean }
-  | { status: 'failed'; budgetMinutes: number };
+  | { status: 'failed'; budgetMinutes: number }
+  /** Exceeded the time limit. AC 1.3.2 requires this to read distinctly from a failure. */
+  | { status: 'timedout'; budgetMinutes: number; limitMs: number };
 
 export function useReachability(
   initialStop: RailStop | null,
@@ -59,6 +65,13 @@ export function useReachability(
           setState({ status: 'ready', budgetMinutes, result, walkingOnly });
         })
         .catch(error => {
+          // A superseded run aborts its own controller — that is not a failure to report.
+          // A timeout also arrives as an abort, so check it before the aborted guard.
+          if (error instanceof RoutingTimeoutError) {
+            if (ticket !== runId.current) return;
+            setState({ status: 'timedout', budgetMinutes, limitMs: error.limitMs });
+            return;
+          }
           if (controller.signal.aborted || ticket !== runId.current) return;
           console.error('Reachability computation failed', error);
           setState({ status: 'failed', budgetMinutes });
