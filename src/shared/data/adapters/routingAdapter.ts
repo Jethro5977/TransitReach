@@ -31,10 +31,7 @@ import { loadRailFeedMetadata } from './gtfsAdapter';
  */
 const BASE_URL = (import.meta.env.VITE_OTP_BASE_URL ?? '').replace(/\/$/, '');
 
-const BASE_URL = (
-  configuredBaseUrl ||
-  (import.meta.env.DEV ? 'http://localhost:8080' : '')
-).replace(/\/$/, '');
+
 /**
  * Departure time used for every computation.
  *
