@@ -11,7 +11,24 @@
 
 import { loadRailFeedMetadata } from './gtfsAdapter';
 
-const BASE_URL = (import.meta.env.VITE_OTP_BASE_URL ?? 'http://localhost:8080').replace(/\/$/, '');
+/**
+ * Where the routing service lives.
+ *
+ * In development, default to a locally running OTP. In a production build, default to
+ * the app's **own origin**, so requests go to `/otp/...` and are forwarded by the
+ * `/otp/*` proxy rule in `public/_redirects`.
+ *
+ * The production default deliberately is not localhost. A deployed build that falls back
+ * to localhost asks every visitor's own machine for routing, which fails for all of them
+ * while looking like the routing server is down — and the deployer gets no hint that a
+ * missing environment variable is the cause. Defaulting to same-origin means deployment
+ * needs only the redirect rule, which lives in the repo and travels with the code.
+ *
+ * `VITE_OTP_BASE_URL` still overrides both, for pointing dev at a hosted engine. Note
+ * that Vite inlines it at build time, so it requires a rebuild, not just a restart.
+ */
+const DEFAULT_BASE_URL = import.meta.env.DEV ? 'http://localhost:8080' : '';
+const BASE_URL = (import.meta.env.VITE_OTP_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
 
 /**
  * Departure time used for every computation.
