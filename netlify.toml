@@ -1,5 +1,0 @@
-[[redirects]]
-  from = "/otp/*"
-  to = "http://203.101.230.213:8080/otp/:splat"
-  status = 200
-  force = true
