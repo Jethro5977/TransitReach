@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Crosshair, Footprints, Loader2, Maximize2, Minimize2, RotateCw, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Clock, Crosshair, Database, Footprints, Loader2, Maximize2, Minimize2, RotateCw, X } from 'lucide-react';
 import { Tooltip } from '@/shared/ui';
 import {
   BaseMap,
@@ -14,6 +14,7 @@ import {
   STUDY_AREA_BUFFER_KM,
   BUDGET_COMPONENTS,
   BUDGET_ASSUMPTIONS,
+  getDataBasis,
 } from '@/features/reachability/reachabilityService';
 import { linesForStop } from '@/shared/data/adapters/gtfsAdapter';
 
@@ -184,6 +185,29 @@ function ResultPanel({
         </div>
       )}
 
+      {/* AC 1.3.2 — a timeout reads distinctly from a failure: it names the limit that was
+          exceeded, rather than implying the computation went wrong. Amber, not rose. */}
+      {state.status === 'timedout' && (
+        <div className="glass p-3.5 border border-amber-200" style={{ background: 'rgba(255,251,235,0.92)' }}>
+          <div className="flex items-start gap-2.5">
+            <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-900">
+                Timed out after {Math.round(state.limitMs / 1000)} s. The reachable area for{' '}
+                {state.budgetMinutes} min was not computed.
+              </p>
+              <button
+                onClick={onRetry}
+                className="btn-secondary inline-flex items-center gap-1.5 text-xs py-1.5 px-2.5 mt-2"
+              >
+                <RotateCw size={13} />
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {state.status === 'ready' && (
         <div className="glass p-3.5">
           {/* AC 1.2.2 — this label comes from the state the area was computed with, never
@@ -225,6 +249,83 @@ function ResultPanel({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* AC 1.3.3 — the data basis accompanies a displayed result, and only a result. */}
+      {state.status === 'ready' && <DataBasisNote />}
+    </div>
+  );
+}
+
+/**
+ * AC 1.3.3 — what the displayed result was computed from.
+ *
+ * Shown only alongside a drawn area, since it describes that result. Every value is read
+ * from the feed metadata rather than written by hand, so it cannot drift from the data the
+ * engine was actually built on. The OpenStreetMap attribution required by the same
+ * criterion is Leaflet's own control on the map, which is not dismissible.
+ */
+function DataBasisNote() {
+  const [open, setOpen] = useState(false);
+  const basis = getDataBasis();
+
+  return (
+    <div className="glass p-3.5 mt-3">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 text-left"
+        aria-expanded={open}
+      >
+        <Database size={13} className="text-slate-500 shrink-0" />
+        <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-wide flex-1">
+          What this is computed from
+        </span>
+        <ChevronDown
+          size={14}
+          className="text-slate-400 shrink-0"
+          style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 200ms ease-out' }}
+        />
+      </button>
+
+      {/* Always visible, expanded or not: the scope of the result and its basis in time. */}
+      <div className="mt-2 space-y-1 text-[11px] leading-snug">
+        <div>
+          <span className="font-semibold text-slate-700">{basis.feedName}</span>
+          <span className="text-slate-500"> — {basis.lineCount} rail lines, service {basis.serviceStart} to {basis.serviceEnd}</span>
+        </div>
+        <div className="text-slate-600">
+          <span className="font-semibold capitalize">{basis.dayType}</span> service, departing {basis.dayLabel}
+          {basis.activeCalendars.length > 0 && (
+            <span className="text-slate-400"> (calendar {basis.activeCalendars.join(', ')})</span>
+          )}
+        </div>
+        <div className="text-slate-600">{basis.modesNotLoaded}</div>
+      </div>
+
+      {open && (
+        <div className="mt-2 pt-2 border-t border-slate-200/70 space-y-1.5 text-[11px] leading-snug fade-in">
+          <p className="text-slate-600">{basis.realtimeNote}</p>
+
+          {basis.expiredCalendars.length > 0 && (
+            <p className="text-slate-600">
+              <span className="font-semibold text-slate-700">Expired service excluded:</span>{' '}
+              the feed also contains{' '}
+              {basis.expiredCalendars.map(c => `${c.serviceId} (ended ${c.endDate})`).join(' and ')}.
+              No trip references {basis.expiredCalendars.length > 1 ? 'them' : 'it'}, and the graph
+              build bounds the service period, so no result is drawn from expired service.
+            </p>
+          )}
+
+          <p className="text-slate-600">
+            <span className="font-semibold text-slate-700">Base map:</span> OpenStreetMap, under
+            the ODbL. Attribution is shown on the map at all times and is not dismissible.
+          </p>
+
+          <p className="text-slate-500">
+            <span className="font-semibold text-slate-600">Feed licence:</span>{' '}
+            {basis.licence ?? basis.licenceStatus}
+          </p>
         </div>
       )}
     </div>

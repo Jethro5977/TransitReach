@@ -25,10 +25,10 @@ const ORIGIN_ZOOM = 15;
  * Fill opacity of the reachable area.
  *
  * AC 1.3.1's checkable requirement is that "street names and base map features remain
- * readable through it"; the epic proposes 40% but marks it as the team's to confirm. 40%
- * teal over OSM raster tiles buries small street labels, so this is set lower to satisfy
- * the criterion that can actually be tested. The number is one line to change if the team
- * decides otherwise.
+ * readable through it". The epic proposed 40% and left the value for the team to confirm;
+ * the team settled on 25%, because 40% teal over OSM raster tiles buries small street
+ * labels while 25% leaves them legible at every zoom. This value is now agreed, not
+ * provisional.
  */
 const FILL_OPACITY = 0.25;
 const AREA_COLOR = '#0d9488';
@@ -105,13 +105,20 @@ function OriginPin({ at }: { at: LatLng }) {
       <CircleMarker
         center={[at.lat, at.lon]}
         radius={13}
-        pathOptions={{ color: '#0d9488', weight: 2, fillColor: '#0d9488', fillOpacity: 0.18 }}
+        // AC 1.3.1 — the marker must sit above the fill. Leaflet stacks vectors in the
+        // order their layers mount, and the area arrives after the pin, so leaving both
+        // in the default overlay pane buries the pin under the area. markerPane sits at
+        // z-index 600 against overlayPane's 400, which makes the ordering independent of
+        // mount order. Do not move these back to the default pane.
+        pane="markerPane"
+        pathOptions={{ className: 'origin-marker', color: '#0d9488', weight: 2, fillColor: '#0d9488', fillOpacity: 0.18 }}
         interactive={false}
       />
       <CircleMarker
         center={[at.lat, at.lon]}
         radius={6}
-        pathOptions={{ color: '#ffffff', weight: 2.5, fillColor: '#0d9488', fillOpacity: 1 }}
+        pane="markerPane"
+        pathOptions={{ className: 'origin-marker', color: '#ffffff', weight: 2.5, fillColor: '#0d9488', fillOpacity: 1 }}
         interactive={false}
       />
     </>
@@ -138,6 +145,7 @@ function ReachabilityLayer({ regions }: { regions: IsochroneRegion[] }) {
             ring.map(([lon, lat]) => [lat, lon] as [number, number]),
           )}
           pathOptions={{
+            className: 'reach-area',
             color: AREA_COLOR,
             weight: 1.5,
             opacity: 0.55,

@@ -43,3 +43,7 @@ yarn-error.log*
 
 # Test output
 coverage/
+
+# AWS deployment artefacts: identifies your infrastructure, not the project.
+routing/deploy/created-resources.txt
+routing/deploy/*.pem
