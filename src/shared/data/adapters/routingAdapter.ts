@@ -14,21 +14,22 @@ import { loadRailFeedMetadata } from './gtfsAdapter';
 /**
  * Where the routing service lives.
  *
- * In development, default to a locally running OTP. In a production build, default to
- * the app's **own origin**, so requests go to `/otp/...` and are forwarded by the
- * `/otp/*` proxy rule in `public/_redirects`.
+ * Empty by default, meaning the app's **own origin**: requests go to `/otp/...` and are
+ * proxied to the routing engine — by Netlify in production via `public/_redirects`, and
+ * by the Vite dev server via the matching rule in `vite.config.ts`. Both read the same
+ * address from the same file, so dev and production take the same route.
  *
- * The production default deliberately is not localhost. A deployed build that falls back
- * to localhost asks every visitor's own machine for routing, which fails for all of them
- * while looking like the routing server is down — and the deployer gets no hint that a
- * missing environment variable is the cause. Defaulting to same-origin means deployment
- * needs only the redirect rule, which lives in the repo and travels with the code.
+ * This deliberately does not fall back to localhost. A deployed build that did would ask
+ * every visitor's own machine for routing: it fails for all of them, looks exactly like
+ * the routing server being down, and gives the deployer no hint that a missing
+ * environment variable is the cause. Same-origin means deployment needs no configuration
+ * beyond the redirect rule, which travels with the code.
  *
- * `VITE_OTP_BASE_URL` still overrides both, for pointing dev at a hosted engine. Note
- * that Vite inlines it at build time, so it requires a rebuild, not just a restart.
+ * `VITE_OTP_BASE_URL` overrides it, for pointing at an engine other than the one in
+ * `public/_redirects` without editing that file. Vite inlines it at build and dev-server
+ * start, so it needs a restart or rebuild, never just a save.
  */
-const DEFAULT_BASE_URL = import.meta.env.DEV ? 'http://localhost:8080' : '';
-const BASE_URL = (import.meta.env.VITE_OTP_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+const BASE_URL = (import.meta.env.VITE_OTP_BASE_URL ?? '').replace(/\/$/, '');
 
 /**
  * Departure time used for every computation.
