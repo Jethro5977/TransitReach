@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { computeReachability, type IsochroneResult } from '@/shared/data/adapters/routingAdapter';
 import type { LatLng, Origin, RailStop } from '../types';
 import { isInStudyArea } from '../reachabilityService';
 
@@ -12,6 +13,20 @@ const LOCATION_OUTSIDE_AREA = 'Your location is outside the covered area';
 /** AC 1.2.1 — 30 min is selected before any starting point has been chosen. */
 const DEFAULT_TIME_BUDGET = 30;
 
+/**
+ * The reachable area's lifecycle.
+ *
+ * `budgetMinutes` on the computing and ready states is the budget that computation was
+ * started with — not whatever is currently selected. AC 1.2.2 requires the budget shown
+ * beside an area to be the one the area was computed with; keeping it on the state rather
+ * than reading the selector is what makes the two incapable of disagreeing.
+ */
+export type ReachabilityState =
+  | { status: 'idle' }
+  | { status: 'computing'; budgetMinutes: number }
+  | { status: 'ready'; budgetMinutes: number; result: IsochroneResult; walkingOnly: boolean }
+  | { status: 'failed'; budgetMinutes: number };
+
 export function useReachability(
   initialStop: RailStop | null,
   onToast: (message: string, icon?: string) => void,
@@ -20,6 +35,50 @@ export function useReachability(
     initialStop ? { at: { lat: initialStop.lat, lon: initialStop.lon }, source: 'stop', stop: initialStop } : null,
   );
   const [timeBudget, setTimeBudget] = useState(DEFAULT_TIME_BUDGET);
+  const [state, setState] = useState<ReachabilityState>({ status: 'idle' });
+
+  // Guards against a superseded result ever reaching the screen. Every run takes a
+  // ticket; only the holder of the current ticket is allowed to write state.
+  const runId = useRef(0);
+  const inFlight = useRef<AbortController | null>(null);
+
+  const run = useCallback(
+    (at: LatLng, budgetMinutes: number) => {
+      inFlight.current?.abort();
+      const controller = new AbortController();
+      inFlight.current = controller;
+      const ticket = ++runId.current;
+
+      // AC 1.1.5 / AC 1.2.2 — the previous area is removed when the new computation
+      // starts, not when it finishes, so two areas are never on the map at once.
+      setState({ status: 'computing', budgetMinutes });
+
+      computeReachability(at, budgetMinutes, controller.signal)
+        .then(({ result, walkingOnly }) => {
+          if (ticket !== runId.current) return; // superseded — discard, never render
+          setState({ status: 'ready', budgetMinutes, result, walkingOnly });
+        })
+        .catch(error => {
+          if (controller.signal.aborted || ticket !== runId.current) return;
+          console.error('Reachability computation failed', error);
+          setState({ status: 'failed', budgetMinutes });
+        });
+    },
+    [],
+  );
+
+  // Recompute whenever the origin or the budget changes, and only then.
+  useEffect(() => {
+    if (!origin) {
+      inFlight.current?.abort();
+      runId.current++;
+      setState({ status: 'idle' });
+      return;
+    }
+    run(origin.at, timeBudget);
+  }, [origin, timeBudget, run]);
+
+  useEffect(() => () => inFlight.current?.abort(), []);
 
   /** Selecting a stop places the origin at its stop_lat / stop_lon from the feed. */
   const selectStop = (stop: RailStop) => {
@@ -61,19 +120,26 @@ export function useReachability(
     );
   };
 
-  /** AC 1.1.5 — clears the starting point and returns the map to its default view. */
+  /** AC 1.1.5 — clears the starting point and the area, and returns to the default view. */
   const clearOrigin = () => setOrigin(null);
 
   /** AC 1.1.5 / AC 1.2.2 — the budget survives a change of starting point, and vice versa. */
   const changeTimeBudget = (minutes: number) => setTimeBudget(minutes);
 
+  /** AC 1.3.2 — re-runs the same settings without the user re-entering anything. */
+  const retry = () => {
+    if (origin) run(origin.at, timeBudget);
+  };
+
   return {
     origin,
     timeBudget,
+    state,
     selectStop,
     selectPoint,
     requestDeviceLocation,
     clearOrigin,
     changeTimeBudget,
+    retry,
   };
 }

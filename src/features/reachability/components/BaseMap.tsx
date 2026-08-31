@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Polygon, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import type { IsochroneRegion } from '@/shared/data/adapters/routingAdapter';
 import type { LatLng, Origin } from '../types';
 import { NETWORK_CENTRE } from '../reachabilityService';
 
@@ -20,8 +21,22 @@ const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright
 const DEFAULT_ZOOM = 11;
 const ORIGIN_ZOOM = 15;
 
+/**
+ * Fill opacity of the reachable area.
+ *
+ * AC 1.3.1's checkable requirement is that "street names and base map features remain
+ * readable through it"; the epic proposes 40% but marks it as the team's to confirm. 40%
+ * teal over OSM raster tiles buries small street labels, so this is set lower to satisfy
+ * the criterion that can actually be tested. The number is one line to change if the team
+ * decides otherwise.
+ */
+const FILL_OPACITY = 0.25;
+const AREA_COLOR = '#0d9488';
+
 interface BaseMapProps {
   origin: Origin | null;
+  /** Disjoint reachable regions, or null when there is nothing to draw. */
+  regions: IsochroneRegion[] | null;
   onMapClick: (at: LatLng) => void;
 }
 
@@ -103,7 +118,40 @@ function OriginPin({ at }: { at: LatLng }) {
   );
 }
 
-export function BaseMap({ origin, onMapClick }: BaseMapProps) {
+/**
+ * The reachable area.
+ *
+ * Each region is drawn as its own polygon. AC 1.3.1 forbids merging non-contiguous
+ * areas — a pocket around a distant station stays a separate shape rather than being
+ * absorbed into one enclosing hull. OTP returns them already disjoint; this just keeps
+ * them that way. Holes are passed through as inner rings so enclosed unreachable ground
+ * is not painted as reachable.
+ */
+function ReachabilityLayer({ regions }: { regions: IsochroneRegion[] }) {
+  return (
+    <>
+      {regions.map((region, i) => (
+        <Polygon
+          key={i}
+          // GeoJSON is [lon, lat]; Leaflet wants [lat, lon].
+          positions={[region.outer, ...region.holes].map(ring =>
+            ring.map(([lon, lat]) => [lat, lon] as [number, number]),
+          )}
+          pathOptions={{
+            color: AREA_COLOR,
+            weight: 1.5,
+            opacity: 0.55,
+            fillColor: AREA_COLOR,
+            fillOpacity: FILL_OPACITY,
+          }}
+          interactive={false}
+        />
+      ))}
+    </>
+  );
+}
+
+export function BaseMap({ origin, regions, onMapClick }: BaseMapProps) {
   return (
     <MapContainer
       center={[NETWORK_CENTRE.lat, NETWORK_CENTRE.lon]}
@@ -116,6 +164,8 @@ export function BaseMap({ origin, onMapClick }: BaseMapProps) {
       <ResizeHandler />
       <ClickHandler onMapClick={onMapClick} />
       <ViewController origin={origin} />
+      {/* The area is drawn first so the origin pin sits above the fill (AC 1.3.1). */}
+      {regions && <ReachabilityLayer regions={regions} />}
       {origin && <OriginPin at={origin.at} />}
     </MapContainer>
   );

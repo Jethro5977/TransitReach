@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Crosshair, Maximize2, Minimize2, X } from 'lucide-react';
+import { AlertTriangle, Crosshair, Footprints, Loader2, Maximize2, Minimize2, RotateCw, X } from 'lucide-react';
 import { Tooltip } from '@/shared/ui';
 import {
   BaseMap,
@@ -7,6 +7,7 @@ import {
   TimeBudgetSelector,
   useReachability,
   type RailStop,
+  type ReachabilityState,
 } from '@/features/reachability';
 import {
   formatCoord,
@@ -30,8 +31,14 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
     // the padding box, so padding here would let the map slide under the navbar.
     <div className="fixed left-0 right-0 bottom-0 top-16 overflow-hidden">
       <div className="absolute inset-0">
-        <BaseMap origin={reach.origin} onMapClick={reach.selectPoint} />
+        <BaseMap
+          origin={reach.origin}
+          regions={reach.state.status === 'ready' ? reach.state.result.regions : null}
+          onMapClick={reach.selectPoint}
+        />
       </div>
+
+      <ResultPanel state={reach.state} onRetry={reach.retry} />
 
       {/* The budget composition note makes the panel tall enough to overflow a short
           viewport, so it scrolls internally rather than running off the bottom — the
@@ -128,6 +135,103 @@ function OriginReadout({ origin }: { origin: NonNullable<ReturnType<typeof useRe
 }
 
 /**
+ * The result, and the states that are not a result.
+ *
+ * AC 1.3.2 requires computing, failure and valid-result states to be visually distinct
+ * and never confused with one another. AC 1.2.4's walking-only outcome is a *valid
+ * finding*, so it deliberately carries no error styling and no retry control — only the
+ * failure state does.
+ */
+function ResultPanel({
+  state,
+  onRetry,
+}: {
+  state: ReachabilityState;
+  onRetry: () => void;
+}) {
+  const [dismissed, setDismissed] = useState<number | null>(null);
+
+  if (state.status === 'idle') return null;
+
+  return (
+    <div className="absolute top-4 right-4 sm:right-6 z-[500] w-[300px] max-w-[calc(100vw-2rem)]">
+      {state.status === 'computing' && (
+        <div className="glass p-3.5 flex items-center gap-2.5">
+          <Loader2 size={16} className="spinner text-teal-600 shrink-0" />
+          <span className="text-sm font-medium text-slate-700">
+            Computing reachable area for {state.budgetMinutes} min…
+          </span>
+        </div>
+      )}
+
+      {state.status === 'failed' && (
+        <div className="glass p-3.5 border border-rose-200" style={{ background: 'rgba(255,241,242,0.92)' }}>
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-rose-900">
+                Could not compute the reachable area. Try again.
+              </p>
+              <button
+                onClick={onRetry}
+                className="btn-secondary inline-flex items-center gap-1.5 text-xs py-1.5 px-2.5 mt-2"
+              >
+                <RotateCw size={13} />
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {state.status === 'ready' && (
+        <div className="glass p-3.5">
+          {/* AC 1.2.2 — this label comes from the state the area was computed with, never
+              from the selector, so the two cannot disagree. */}
+          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            Reachable within {state.budgetMinutes} min
+          </div>
+          <div className="text-2xl font-bold text-slate-900" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            {state.result.areaKm2.toFixed(1)}
+            <span className="text-sm font-semibold text-slate-400 ml-1">km²</span>
+          </div>
+          <div className="text-[11px] text-slate-500 mt-1">
+            {state.result.regions.length === 1
+              ? 'one continuous area'
+              : `${state.result.regions.length} separate areas`}
+          </div>
+
+          {/* AC 1.3.1 — the boundary is modelled, not a surveyed line. */}
+          <p className="text-[11px] text-slate-400 leading-snug mt-2 pt-2 border-t border-slate-200/70">
+            A modelled boundary, not a precise line. A point just outside it is not
+            meaningfully less reachable than one just inside.
+          </p>
+
+          {/* AC 1.2.4 — a valid finding, not an error. Dismissible, and it does not block
+              interaction with the map. */}
+          {state.walkingOnly && dismissed !== state.budgetMinutes && (
+            <div className="mt-2.5 pt-2.5 border-t border-slate-200/70 flex items-start gap-2">
+              <Footprints size={14} className="text-slate-500 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-slate-600 leading-snug flex-1">
+                No public transport can be boarded from this point within{' '}
+                {state.budgetMinutes} min. The area shown is walking only.
+              </p>
+              <button
+                onClick={() => setDismissed(state.budgetMinutes)}
+                className="text-slate-400 hover:text-slate-600 shrink-0"
+                aria-label="Dismiss"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * AC 1.2.3 — what the travel time budget is spent on.
  *
  * The note is always visible rather than behind a control, because the criterion asks for
@@ -164,7 +268,7 @@ function BudgetCompositionNote() {
           <div key={assumption.label} className="text-[11px] leading-snug">
             <span className="font-semibold text-slate-700">{assumption.label}:</span>{' '}
             <span className="text-slate-500">{assumption.status}</span>
-            <span className="text-slate-400"> ({assumption.owner})</span>
+            {assumption.owner && <span className="text-slate-400"> ({assumption.owner})</span>}
           </div>
         ))}
       </div>

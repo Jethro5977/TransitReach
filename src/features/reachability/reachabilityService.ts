@@ -1,6 +1,11 @@
 import { TRANSIT_LINES } from '@/shared/data';
 import { generateReachPolygon, mapAreaToKm2 } from '@/shared/data/mock/reachability';
 import { loadRailFeedMetadata } from '@/shared/data/adapters/gtfsAdapter';
+import {
+  WALK_SPEED_MS,
+  DEPARTURE_TIME_LABEL,
+  DEPARTURE_TIME_IS_PROVISIONAL,
+} from '@/shared/data/adapters/routingAdapter';
 import { polygonArea } from '@/shared/lib/spatial';
 import type { MapPoint } from '@/shared/types/location';
 import type { LatLng, RailStop } from './types';
@@ -82,6 +87,9 @@ export function formatCoord(p: LatLng): string {
  * value is filled in with a plausible-looking number. `owner` names the epic or decision
  * that has to resolve the component before it can be modelled.
  */
+/** The configured walking speed, in km/h, for display. */
+export const WALK_SPEED_KMH = Math.round(WALK_SPEED_MS * 3.6 * 10) / 10;
+
 export interface BudgetComponent {
   label: string;
   /** Marks a component whose value is inferred rather than published. */
@@ -96,52 +104,59 @@ export interface BudgetComponent {
 export const BUDGET_COMPONENTS: BudgetComponent[] = [
   {
     label: 'Walking to the first stop',
-    modelled: false,
-    status: 'Not yet modelled — no walking speed is set and no street network is routed over.',
-    owner: 'routing engine + First-Mile Walking Access',
+    modelled: true,
+    status: `Routed over the OpenStreetMap pedestrian network at ${WALK_SPEED_KMH} km/h. No straight-line distance is used.`,
   },
   {
     label: 'Waiting for the first service',
-    modelled: false,
+    modelled: true,
     status:
-      'Not yet modelled — the feed publishes headways of 3 min at peak and 5 min off-peak, ' +
-      'but the rule for turning a headway into an expected wait has not been agreed.',
-    owner: 'team decision',
+      'Counted from the feed\'s published headways (3 min at peak, 5 min off-peak), ' +
+      'expanded into scheduled departures. The wait is whatever the next departure ' +
+      'after arrival at the stop implies, not a separate agreed rule.',
+    owner: 'rule still to be confirmed',
   },
   {
     label: 'In-vehicle time',
-    modelled: false,
-    status: 'Available from the feed\'s scheduled stop times, but not yet computed.',
+    modelled: true,
+    status: 'From the feed\'s scheduled stop times.',
   },
   {
     label: 'Interchange time between legs',
     estimate: true,
     modelled: false,
-    status: 'Estimate — value not yet set. The transit data publishes no interchange times at all.',
+    status:
+      'Not modelled — no interchange penalty is applied, so journeys with a transfer are ' +
+      'optimistic. The transit data publishes no interchange times at all.',
     owner: 'Interchange Time Estimation',
   },
   {
     label: 'Walking from the last stop to the destination',
-    modelled: false,
-    status: 'Not yet modelled — same dependency as the first-stop walk.',
-    owner: 'routing engine + First-Mile Walking Access',
+    modelled: true,
+    status: `Routed over the pedestrian network at ${WALK_SPEED_KMH} km/h, same as the first-stop walk.`,
   },
 ];
 
 /**
- * Assumptions the budget rests on that are not themselves components, and are unresolved.
+ * Assumptions the budget rests on that are not themselves components.
  * Named rather than omitted, for the same reason as the components above.
  */
 export const BUDGET_ASSUMPTIONS = [
   {
     label: 'Walking speed',
-    status: 'Not yet set',
-    owner: 'routing engine + First-Mile Walking Access',
+    status: `${WALK_SPEED_KMH} km/h (${WALK_SPEED_MS} m/s)`,
   },
   {
     label: 'Departure time',
-    status: 'Not yet set — every epic that computes reachability must share one default',
-    owner: 'team decision',
+    status: DEPARTURE_TIME_IS_PROVISIONAL
+      ? `${DEPARTURE_TIME_LABEL} — provisional, and every epic that computes reachability must share one agreed value`
+      : DEPARTURE_TIME_LABEL,
+    owner: DEPARTURE_TIME_IS_PROVISIONAL ? 'team decision' : undefined,
+  },
+  {
+    label: 'Modes included',
+    status: 'Rail only. Bus and feeder services are not included in this result.',
+    owner: 'bus feeds not yet loaded',
   },
 ];
 
