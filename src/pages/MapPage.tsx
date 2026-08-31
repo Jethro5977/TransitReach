@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Crosshair, Footprints, Loader2, Maximize2, Minimize2, RotateCw, X } from 'lucide-react';
+import { AlertTriangle, Clock, Crosshair, Footprints, Loader2, Maximize2, Minimize2, RotateCw, X } from 'lucide-react';
 import { Tooltip } from '@/shared/ui';
 import {
   BaseMap,
@@ -171,6 +171,29 @@ function ResultPanel({
             <div className="flex-1">
               <p className="text-sm font-medium text-rose-900">
                 Could not compute the reachable area. Try again.
+              </p>
+              <button
+                onClick={onRetry}
+                className="btn-secondary inline-flex items-center gap-1.5 text-xs py-1.5 px-2.5 mt-2"
+              >
+                <RotateCw size={13} />
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AC 1.3.2 — a timeout reads distinctly from a failure: it names the limit that was
+          exceeded, rather than implying the computation went wrong. Amber, not rose. */}
+      {state.status === 'timedout' && (
+        <div className="glass p-3.5 border border-amber-200" style={{ background: 'rgba(255,251,235,0.92)' }}>
+          <div className="flex items-start gap-2.5">
+            <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-900">
+                Timed out after {Math.round(state.limitMs / 1000)} s. The reachable area for{' '}
+                {state.budgetMinutes} min was not computed.
               </p>
               <button
                 onClick={onRetry}

@@ -25,10 +25,10 @@ const ORIGIN_ZOOM = 15;
  * Fill opacity of the reachable area.
  *
  * AC 1.3.1's checkable requirement is that "street names and base map features remain
- * readable through it"; the epic proposes 40% but marks it as the team's to confirm. 40%
- * teal over OSM raster tiles buries small street labels, so this is set lower to satisfy
- * the criterion that can actually be tested. The number is one line to change if the team
- * decides otherwise.
+ * readable through it". The epic proposed 40% and left the value for the team to confirm;
+ * the team settled on 25%, because 40% teal over OSM raster tiles buries small street
+ * labels while 25% leaves them legible at every zoom. This value is now agreed, not
+ * provisional.
  */
 const FILL_OPACITY = 0.25;
 const AREA_COLOR = '#0d9488';
