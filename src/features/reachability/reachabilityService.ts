@@ -3,6 +3,7 @@ import { generateReachPolygon, mapAreaToKm2 } from '@/shared/data/mock/reachabil
 import { loadRailFeedMetadata } from '@/shared/data/adapters/gtfsAdapter';
 import {
   WALK_SPEED_MS,
+  DEPARTURE_TIME,
   DEPARTURE_TIME_LABEL,
   DEPARTURE_TIME_IS_PROVISIONAL,
 } from '@/shared/data/adapters/routingAdapter';
@@ -90,6 +91,91 @@ export function formatCoord(p: LatLng): string {
 /** The configured walking speed, in km/h, for display. */
 export const WALK_SPEED_KMH = Math.round(WALK_SPEED_MS * 3.6 * 10) / 10;
 
+/**
+ * AC 1.3.3 / AC 1.2.3 — modes absent from the computation, named rather than passed over
+ * in silence. The wording is the epic's own.
+ */
+export const MODES_NOT_LOADED = 'Bus and feeder services are not included in this result.';
+
+/**
+ * AC 1.3.3 — the result is scheduled, not live. There is no realtime feed for rail in any
+ * case: the Prasarana vehicle-position endpoint returns 404 for rapid-rail-kl, and the bus
+ * feeds that do exist publish vehicle positions only, never trip updates, so they could not
+ * shift a travel time even once loaded.
+ */
+export const REALTIME_NOTE =
+  'Computed from scheduled service. It does not reflect current operating conditions, and ' +
+  'no realtime data is incorporated — no realtime feed is published for rail.';
+
+// ---------------------------------------------------------------- data basis
+
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** "20261231" -> "31 Dec 2026" */
+function formatFeedDate(yyyymmdd: string): string {
+  const y = Number(yyyymmdd.slice(0, 4));
+  const m = Number(yyyymmdd.slice(4, 6));
+  const d = Number(yyyymmdd.slice(6, 8));
+  const month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1];
+  return `${d} ${month} ${y}`;
+}
+
+export interface DataBasis {
+  feedName: string;
+  serviceStart: string;
+  serviceEnd: string;
+  licence: string | null;
+  licenceStatus: string;
+  /** Weekday or weekend — reachability differs between them, so it must be stated. */
+  dayType: 'weekday' | 'weekend';
+  dayLabel: string;
+  /** Calendars in the feed that actually serve the departure day. */
+  activeCalendars: string[];
+  /** Expired calendars present in the feed and excluded from the computation. */
+  expiredCalendars: { serviceId: string; endDate: string }[];
+  modesNotLoaded: string;
+  realtimeNote: string;
+  lineCount: number;
+}
+
+/**
+ * Describes what the displayed result was computed from.
+ *
+ * The day type is derived from the configured departure time rather than assumed, so it
+ * cannot drift if that time changes. Expired calendars are reported from the feed itself:
+ * they are present in calendar.txt but referenced by no trip, and the graph build bounds
+ * the service period besides, so no result can be drawn from them.
+ */
+export function getDataBasis(): DataBasis {
+  const meta = loadRailFeedMetadata();
+  const feed = meta.feeds[0];
+
+  const [datePart] = DEPARTURE_TIME.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const dayName = DAY_NAMES[dow];
+  const dayType = dow === 0 || dow === 6 ? 'weekend' : 'weekday';
+
+  return {
+    feedName: feed.feedName,
+    serviceStart: formatFeedDate(feed.serviceDateRange.start),
+    serviceEnd: formatFeedDate(feed.serviceDateRange.end),
+    licence: feed.licence,
+    licenceStatus: feed.licenceStatus,
+    dayType,
+    dayLabel: DEPARTURE_TIME_LABEL,
+    activeCalendars: feed.serviceCalendars
+      .filter(c => c.referencedByTrips && !c.expired && c.days.includes(dayName))
+      .map(c => c.serviceId),
+    expiredCalendars: feed.serviceCalendars
+      .filter(c => c.expired)
+      .map(c => ({ serviceId: c.serviceId, endDate: formatFeedDate(c.endDate) })),
+    modesNotLoaded: MODES_NOT_LOADED,
+    realtimeNote: REALTIME_NOTE,
+    lineCount: feed.lines.length,
+  };
+}
+
 export interface BudgetComponent {
   label: string;
   /** Marks a component whose value is inferred rather than published. */
@@ -155,7 +241,7 @@ export const BUDGET_ASSUMPTIONS = [
   },
   {
     label: 'Modes included',
-    status: 'Rail only. Bus and feeder services are not included in this result.',
+    status: `Rail only. ${MODES_NOT_LOADED}`,
     owner: 'bus feeds not yet loaded',
   },
 ];
