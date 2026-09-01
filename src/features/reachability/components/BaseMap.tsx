@@ -1,4 +1,7 @@
-import { useEffect } from 'react';
+import {
+  useEffect,
+  type ReactNode,
+} from 'react';
 import { MapContainer, TileLayer, CircleMarker, Polygon, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { IsochroneRegion } from '@/shared/data/adapters/routingAdapter';
@@ -38,6 +41,7 @@ interface BaseMapProps {
   /** Disjoint reachable regions, or null when there is nothing to draw. */
   regions: IsochroneRegion[] | null;
   onMapClick: (at: LatLng) => void;
+  children?: ReactNode;
 }
 
 /** Reports map clicks. AC 1.1.2 — a click sets or moves the single starting point. */
@@ -159,7 +163,7 @@ function ReachabilityLayer({ regions }: { regions: IsochroneRegion[] }) {
   );
 }
 
-export function BaseMap({ origin, regions, onMapClick }: BaseMapProps) {
+export function BaseMap({ origin, regions, onMapClick, children, }: BaseMapProps) {
   return (
     <MapContainer
       center={[NETWORK_CENTRE.lat, NETWORK_CENTRE.lon]}
@@ -174,6 +178,7 @@ export function BaseMap({ origin, regions, onMapClick }: BaseMapProps) {
       <ViewController origin={origin} />
       {/* The area is drawn first so the origin pin sits above the fill (AC 1.3.1). */}
       {regions && <ReachabilityLayer regions={regions} />}
+      {children}
       {origin && <OriginPin at={origin.at} />}
     </MapContainer>
   );

@@ -18,6 +18,12 @@ import {
 } from '@/features/reachability/reachabilityService';
 import { linesForStop } from '@/shared/data/adapters/gtfsAdapter';
 
+import {
+  FirstMileMapLayer,
+  NearbyStopsPanel,
+  useFirstMile,
+} from '@/features/first-mile';
+
 interface MapPageProps {
   initialLocation: RailStop | null;
   onToast: (message: string, icon?: string) => void;
@@ -26,6 +32,7 @@ interface MapPageProps {
 export function MapPage({ initialLocation, onToast }: MapPageProps) {
   const [configOpen, setConfigOpen] = useState(true);
   const reach = useReachability(initialLocation, onToast);
+  const firstMile = useFirstMile(reach.origin?.at ?? null,);
 
   return (
     // top-16 rather than pt-16: an absolutely positioned child resolves inset-0 against
@@ -34,12 +41,44 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
       <div className="absolute inset-0">
         <BaseMap
           origin={reach.origin}
-          regions={reach.state.status === 'ready' ? reach.state.result.regions : null}
+          regions={
+            reach.state.status === 'ready'
+              ? reach.state.result.regions
+              : null
+          }
           onMapClick={reach.selectPoint}
-        />
+        >
+          {firstMile.state.status ===
+            'ready' && (
+            <FirstMileMapLayer
+              stops={firstMile.state.stops}
+              selectedStopId={
+                firstMile.selectedStopId
+              }
+              onSelect={
+                firstMile.setSelectedStopId
+              }
+            />
+          )}
+        </BaseMap>
       </div>
 
       <ResultPanel state={reach.state} onRetry={reach.retry} />
+      <NearbyStopsPanel
+        state={firstMile.state}
+        thresholdMinutes={
+          firstMile.thresholdMinutes
+        }
+        onThresholdChange={
+          firstMile.setThresholdMinutes
+        }
+        selectedStopId={
+          firstMile.selectedStopId
+        }
+        onSelectStop={
+          firstMile.setSelectedStopId
+        }
+      />
 
       {/* The budget composition note makes the panel tall enough to overflow a short
           viewport, so it scrolls internally rather than running off the bottom — the
