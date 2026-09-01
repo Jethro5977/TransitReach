@@ -191,58 +191,55 @@ export const BUDGET_COMPONENTS: BudgetComponent[] = [
   {
     label: 'Walking to the first stop',
     modelled: true,
-    status: `Routed over the OpenStreetMap pedestrian network at ${WALK_SPEED_KMH} km/h. No straight-line distance is used.`,
+    status: `Routed along real streets and paths at ${WALK_SPEED_KMH} km/h, not measured in a straight line.`,
   },
   {
     label: 'Waiting for the first service',
     modelled: true,
+    // AC 1.2.3 requires the rule for turning a headway into a wait to be stated plainly
+    // rather than buried, so describe it in the words a rider would use.
     status:
-      'Counted from the feed\'s published headways (3 min at peak, 5 min off-peak), ' +
-      'expanded into scheduled departures. The wait is whatever the next departure ' +
-      'after arrival at the stop implies, not a separate agreed rule.',
-    owner: 'rule still to be confirmed',
+      'However long it is until the next scheduled departure after you reach the stop. ' +
+      'Services run every 3 minutes at peak and every 5 minutes off-peak.',
   },
   {
     label: 'In-vehicle time',
     modelled: true,
-    status: 'From the feed\'s scheduled stop times.',
+    status: 'Taken from the published timetable.',
   },
   {
     label: 'Interchange time between legs',
     estimate: true,
     modelled: false,
     status:
-      'Not modelled — no interchange penalty is applied, so journeys with a transfer are ' +
-      'optimistic. The transit data publishes no interchange times at all.',
-    owner: 'Interchange Time Estimation',
+      'Not counted. The transit data publishes no interchange times, so a journey that ' +
+      'involves changing lines may take longer than shown.',
   },
   {
-    label: 'Walking from the last stop to the destination',
+    label: 'Walking from the last stop to your destination',
     modelled: true,
-    status: `Routed over the pedestrian network at ${WALK_SPEED_KMH} km/h, same as the first-stop walk.`,
+    status: `Routed along real streets and paths at ${WALK_SPEED_KMH} km/h, the same as the first walk.`,
   },
 ];
 
 /**
- * Assumptions the budget rests on that are not themselves components.
- * Named rather than omitted, for the same reason as the components above.
+ * Assumptions the result rests on that are not themselves components of the budget.
+ * Stated rather than omitted — a reachable area means little without them.
  */
 export const BUDGET_ASSUMPTIONS = [
   {
     label: 'Walking speed',
-    status: `${WALK_SPEED_KMH} km/h (${WALK_SPEED_MS} m/s)`,
+    status: `${WALK_SPEED_KMH} km/h`,
   },
   {
-    label: 'Departure time',
+    label: 'Departure',
     status: DEPARTURE_TIME_IS_PROVISIONAL
-      ? `${DEPARTURE_TIME_LABEL} — provisional, and every epic that computes reachability must share one agreed value`
+      ? `${DEPARTURE_TIME_LABEL}. Reachability differs at other times of day.`
       : DEPARTURE_TIME_LABEL,
-    owner: DEPARTURE_TIME_IS_PROVISIONAL ? 'team decision' : undefined,
   },
   {
-    label: 'Modes included',
+    label: 'Services included',
     status: `Rail only. ${MODES_NOT_LOADED}`,
-    owner: 'bus feeds not yet loaded',
   },
 ];
 

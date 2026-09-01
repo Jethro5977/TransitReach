@@ -47,6 +47,15 @@ export default defineConfig({
       '/otp': {
         target: otpTarget(),
         changeOrigin: true,
+        // No connection pooling. The routing engine closes idle sockets, and a pooled
+        // socket reused after that surfaces as ECONNRESET — the request then hangs for
+        // the full timeout instead of retrying, so the first call after a pause appears
+        // to freeze. A fresh connection per request costs a few milliseconds and removes
+        // the failure entirely.
+        agent: false,
+        // Fail in seconds rather than hanging, if the engine is unreachable.
+        timeout: 30_000,
+        proxyTimeout: 30_000,
       },
     },
   },
