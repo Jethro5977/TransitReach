@@ -3,7 +3,7 @@ name: Sync upstream main
 on:
   schedule:
     # Avoid the busiest minute at the top of the hour. GitHub's minimum interval is 5 min.
-    - cron: "7/5 * * * *"
+    - cron: "2-59/5 * * * *"
   workflow_dispatch:
 
 permissions:
