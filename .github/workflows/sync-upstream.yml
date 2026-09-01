@@ -1,0 +1,41 @@
+name: Sync upstream main
+
+on:
+  schedule:
+    # Avoid the busiest minute at the top of the hour. GitHub's minimum interval is 5 min.
+    - cron: "7/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream main into the fork
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git remote add upstream https://github.com/jxia0077-boop/TransitReach.git
+          git fetch --prune upstream main
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "Fork already contains the latest upstream main."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-edit upstream/main
+          git push origin HEAD:main
