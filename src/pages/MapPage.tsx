@@ -97,12 +97,14 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
               </div>
 
               <BudgetCompositionNote />
+
+              <div className="pt-2 border-t border-slate-200/70">
+                <CoveredAreaNote />
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {configOpen && <CoveredAreaNote />}
     </div>
   );
 }
@@ -396,21 +398,24 @@ function BudgetCompositionNote() {
 }
 
 /**
- * The study-area bounding box is not yet agreed — it depends on the mode-scope decision
- * and the extent of the bus feed, neither of which is settled. Rather than fill the value
- * in with a guess, the box is derived from the loaded rail network and its basis is
- * stated here, so the reader can see what "covered area" currently means.
+ * What "covered area" means — the bound a map click is rejected against.
+ *
+ * The study-area boundary is not yet agreed: it depends on the extent of the bus feed,
+ * which is not loaded. Rather than invent a boundary, it is derived from the rail network
+ * actually loaded, and that basis is stated here so the reader can see what the limit is.
+ *
+ * Lives inside the configuration panel rather than floating over the map. As a separate
+ * bottom-left box it collided with the panel above it once the travel-time disclosure was
+ * expanded — two independently positioned overlays sharing one column will always be one
+ * content change away from overlapping. Keeping it in the panel's flow removes the class
+ * of bug rather than re-tuning heights.
  */
 function CoveredAreaNote() {
   return (
-    <div className="absolute bottom-4 left-4 sm:left-6 z-[500] max-w-[calc(100vw-2rem)]">
-      <div className="glass p-3 max-w-sm">
-        <p className="text-[11px] text-slate-600 leading-relaxed">
-          <span className="font-semibold text-slate-700">Covered area</span> is the extent of the
-          loaded rail network plus {STUDY_AREA_BUFFER_KM} km. This is provisional — the study-area
-          boundary has not been agreed and depends on the bus feed, which is not yet loaded.
-        </p>
-      </div>
-    </div>
+    <p className="text-[11px] text-slate-500 leading-relaxed">
+      <span className="font-semibold text-slate-600">Covered area</span> is the extent of the
+      loaded rail network plus {STUDY_AREA_BUFFER_KM} km. This is provisional — the boundary
+      depends on the bus feed, which is not yet loaded.
+    </p>
   );
 }
