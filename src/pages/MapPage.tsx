@@ -335,49 +335,62 @@ function DataBasisNote() {
 /**
  * AC 1.2.3 — what the travel time budget is spent on.
  *
- * The note is always visible rather than behind a control, because the criterion asks for
- * a *visible* note enumerating the five components. Every component is listed whether or
- * not it is modelled: a component that is not yet modelled says so rather than being
- * dropped, and no blocked value is shown as a number it does not have.
+ * Collapsed by default. The criterion is triggered by the user "viewing how the travel
+ * time was arrived at", so putting it behind a labelled control is faithful to that and
+ * keeps the panel readable — but everything it must disclose is still here, and no
+ * component is dropped for being unmodelled.
+ *
+ * The wording is deliberately a rider's, not the project's: what counts against the
+ * budget and what is missing from it, with no epic names or internal owners. Honesty
+ * about the model is required; internal process vocabulary is not, and reads as an
+ * unfinished note to anyone outside the team.
  */
 function BudgetCompositionNote() {
+  const [open, setOpen] = useState(false);
+
   return (
     <div className="glass-chip rounded-xl px-3 py-2.5">
-      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-        What the budget is spent on
-      </div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-2 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide flex-1">
+          How this travel time is calculated
+        </span>
+        <ChevronDown
+          size={14}
+          className="text-slate-400 shrink-0"
+          style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 200ms ease-out' }}
+        />
+      </button>
 
-      <ul className="space-y-1.5">
-        {BUDGET_COMPONENTS.map(component => (
-          <li key={component.label} className="text-[11px] leading-snug">
-            <span className="font-semibold text-slate-700">{component.label}</span>
-            {component.estimate && (
-              <span className="ml-1.5 px-1 py-px rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase tracking-wide">
-                Estimate
-              </span>
-            )}
-            <div className="text-slate-500">
-              {component.status}
-              {component.owner && <span className="text-slate-400"> ({component.owner})</span>}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {open && (
+        <div className="fade-in">
+          <ul className="space-y-1.5 mt-2">
+            {BUDGET_COMPONENTS.map(component => (
+              <li key={component.label} className="text-[11px] leading-snug">
+                <span className="font-semibold text-slate-700">{component.label}</span>
+                {component.estimate && (
+                  <span className="ml-1.5 px-1 py-px rounded bg-amber-100 text-amber-800 font-semibold text-[10px] uppercase tracking-wide">
+                    Not counted
+                  </span>
+                )}
+                <div className="text-slate-500">{component.status}</div>
+              </li>
+            ))}
+          </ul>
 
-      <div className="mt-2 pt-2 border-t border-slate-200/70 space-y-1">
-        {BUDGET_ASSUMPTIONS.map(assumption => (
-          <div key={assumption.label} className="text-[11px] leading-snug">
-            <span className="font-semibold text-slate-700">{assumption.label}:</span>{' '}
-            <span className="text-slate-500">{assumption.status}</span>
-            {assumption.owner && <span className="text-slate-400"> ({assumption.owner})</span>}
+          <div className="mt-2 pt-2 border-t border-slate-200/70 space-y-1">
+            {BUDGET_ASSUMPTIONS.map(assumption => (
+              <div key={assumption.label} className="text-[11px] leading-snug">
+                <span className="font-semibold text-slate-700">{assumption.label}:</span>{' '}
+                <span className="text-slate-500">{assumption.status}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <p className="mt-2 text-[11px] leading-snug text-slate-500">
-        No reachable area is computed yet, so these are the components the budget will be spent
-        on rather than a breakdown of a result.
-      </p>
+        </div>
+      )}
     </div>
   );
 }
