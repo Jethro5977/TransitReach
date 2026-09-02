@@ -26,6 +26,19 @@ export interface RailStop {
   platforms: string[];
 }
 
+export interface RailFrequencyWindow {
+  serviceId: string;
+  startTime: string;
+  endTime: string;
+  headwaySeconds: number;
+}
+
+export interface RailFrequency {
+  minHeadwaySeconds: number;
+  maxHeadwaySeconds: number;
+  windows: RailFrequencyWindow[];
+}
+
 export interface RailLine {
   routeId: string;
   shortName: string;
@@ -33,6 +46,12 @@ export interface RailLine {
   mode: string;
   color: string;
   stopCount: number;
+
+  /**
+   * Published GTFS headway information.
+   * Null when the feed provides no frequency data for this route.
+   */
+  frequency: RailFrequency | null;
 }
 
 export interface ServiceCalendar {
@@ -97,4 +116,54 @@ export function linesForStop(stop: RailStop): RailLine[] {
   return stop.lines
     .map(routeId => LINES_BY_ROUTE_ID.get(routeId))
     .filter((line): line is RailLine => line !== undefined);
+}
+
+/**
+ * Converts the GTFS route metadata into a rider-facing mode label.
+ *
+ * The label is inferred only from the published line name; it does not
+ * affect routing.
+ */
+export function displayModeForLine(
+  line: RailLine,
+): string {
+  const name =
+    `${line.shortName} ${line.longName}`.toUpperCase();
+
+  if (name.includes('BRT')) return 'BRT';
+  if (name.includes('MRT')) return 'MRT';
+  if (name.includes('LRT')) return 'LRT';
+  if (name.includes('MONORAIL')) return 'Monorail';
+
+  return line.mode;
+}
+
+/**
+ * AC 3.2.1 — rider-facing frequency from published GTFS headways.
+ *
+ * This is a service-frequency range, not a predicted waiting time.
+ */
+export function formatLineFrequency(
+  line: RailLine,
+): string {
+  if (!line.frequency) {
+    return 'Frequency unavailable';
+  }
+
+  const minMinutes =
+    line.frequency.minHeadwaySeconds / 60;
+
+  const maxMinutes =
+    line.frequency.maxHeadwaySeconds / 60;
+
+  const formatMinutes = (minutes: number) =>
+    Number.isInteger(minutes)
+      ? minutes.toString()
+      : minutes.toFixed(1);
+
+  if (minMinutes === maxMinutes) {
+    return `Every ${formatMinutes(minMinutes)} min`;
+  }
+
+  return `Every ${formatMinutes(minMinutes)}–${formatMinutes(maxMinutes)} min`;
 }

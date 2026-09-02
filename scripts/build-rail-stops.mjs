@@ -121,9 +121,79 @@ function main() {
   const routes = readTable('routes.txt');
   const calendar = readTable('calendar.txt');
   const trips = readTable('trips.txt');
+  const frequencies = readTable('frequencies.txt');
 
   const notes = [];
   const warnings = [];
+
+  // ---------------------------------------------------------------- frequency
+
+  /**
+   * AC 3.2.1 — service frequency comes directly from the raw GTFS
+   * frequencies.txt file.
+   *
+   * A frequency row belongs to a trip, while the UI needs frequency by route.
+   * trips.txt provides that bridge:
+   *
+   * frequencies.txt -> trip_id -> trips.txt -> route_id
+   *
+   * We retain the published headway values rather than deriving frequency from
+   * the expanded timetable. Expanded departure clock times are routing
+   * artefacts and must never be presented as published schedules.
+   */
+  const tripById = new Map(
+    trips.map(trip => [trip.trip_id, trip]),
+  );
+
+  const frequencyWindowsByRoute = new Map();
+
+  for (const frequency of frequencies) {
+    const trip = tripById.get(frequency.trip_id);
+
+    if (!trip) {
+      continue;
+    }
+
+    const routeId = trip.route_id;
+    const headwaySeconds = Number(frequency.headway_secs);
+
+    if (
+      !Number.isFinite(headwaySeconds) ||
+      headwaySeconds <= 0
+    ) {
+      continue;
+    }
+
+    if (!frequencyWindowsByRoute.has(routeId)) {
+      frequencyWindowsByRoute.set(routeId, []);
+    }
+
+    frequencyWindowsByRoute.get(routeId).push({
+      serviceId: trip.service_id,
+      startTime: frequency.start_time,
+      endTime: frequency.end_time,
+      headwaySeconds,
+    });
+  }
+  function uniqueFrequencyWindows(windows) {
+    const seen = new Set();
+
+    return windows.filter(window => {
+      const key = [
+        window.serviceId,
+        window.startTime,
+        window.endTime,
+        window.headwaySeconds,
+      ].join('|');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+  }
 
   // -- guard: the geometry column must be present-but-unused, exactly as the epic describes.
   if (rawStops.length && 'geometry' in rawStops[0]) {
@@ -165,14 +235,41 @@ function main() {
 
   // -- route table.
   const routeById = new Map(routes.map(r => [r.route_id, r]));
-  const lines = routes.map(r => ({
-    routeId: r.route_id,
-    shortName: r.route_short_name,
-    longName: r.route_long_name,
-    mode: r.category,
-    color: `#${r.route_color}`,
-    stopCount: 0,
-  }));
+  const lines = routes.map(r => {
+    const frequencyWindows =
+      uniqueFrequencyWindows(
+        frequencyWindowsByRoute.get(r.route_id) ?? [],
+      );
+
+    const headways =
+      frequencyWindows
+        .map(window => window.headwaySeconds)
+        .filter(value => Number.isFinite(value));
+
+    return {
+      routeId: r.route_id,
+      shortName: r.route_short_name,
+      longName: r.route_long_name,
+      mode: r.category,
+      color: `#${r.route_color}`,
+      stopCount: 0,
+
+      /**
+       * Published GTFS headways.
+       *
+       * The range is intended for neutral service comparison in Epic 3.
+       * It is not a prediction and not a live wait time.
+       */
+      frequency:
+        headways.length > 0
+          ? {
+              minHeadwaySeconds: Math.min(...headways),
+              maxHeadwaySeconds: Math.max(...headways),
+              windows: frequencyWindows,
+            }
+          : null,
+    };
+  });
   const lineByRouteId = new Map(lines.map(l => [l.routeId, l]));
 
   // -- platform rows -> stations.
