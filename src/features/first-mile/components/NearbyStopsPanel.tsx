@@ -9,6 +9,11 @@ import type {
   FirstMileState,
 } from '../types';
 
+import {
+  displayModeForLine,
+  formatLineFrequency,
+} from '@/shared/data/adapters/gtfsAdapter';
+
 interface NearbyStopsPanelProps {
   state: FirstMileState;
   thresholdMinutes: number;
@@ -150,20 +155,30 @@ export function NearbyStopsPanel({
                           {result.stop.name}
                         </div>
 
-                        <div className="flex items-start gap-1 mt-1 text-[11px] text-slate-500">
-                          <Train
-                            size={11}
-                            className="shrink-0 mt-0.5"
-                          />
+                        <div className="mt-2 space-y-2">
+                          {result.lines.map(line => (
+                            <div
+                              key={line.routeId}
+                              className="flex items-start gap-2"
+                            >
+                              <Train
+                                size={12}
+                                className="text-teal-600 shrink-0 mt-0.5"
+                              />
 
-                          <span>
-                            {result.lines
-                              .map(
-                                line =>
-                                  line.longName,
-                              )
-                              .join(' · ')}
-                          </span>
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-semibold text-slate-700">
+                                  {line.longName}
+                                </div>
+
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  {displayModeForLine(line)}
+                                  {' · '}
+                                  {formatLineFrequency(line)}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
 
@@ -192,8 +207,9 @@ export function NearbyStopsPanel({
 
             {/* AC 3.2.2 */}
             <p className="text-[10px] text-slate-400 leading-snug">
-              Stops are presented for neutral comparison.
-              TransitReach does not rank or recommend a station.
+              Frequencies are published GTFS headways, not live
+              arrival predictions. Stops are shown for neutral
+              comparison without ranking or recommendation.
             </p>
           </>
         )}
