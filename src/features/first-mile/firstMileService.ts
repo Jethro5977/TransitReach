@@ -1,15 +1,188 @@
-import type { MapPoint } from '@/shared/types/location';
-import type { TransitLine } from '@/shared/types/transit';
+import {
+  linesForStop,
+  loadRailStops,
+  type RailStop,
+} from '@/shared/data/adapters/gtfsAdapter';
 
-export function getStopsForModes(lines: TransitLine[], modes: Set<string>): MapPoint[] {
-  const stops: MapPoint[] = [];
-  lines.forEach(line => {
-    if (modes.has(line.type)) line.stops.forEach(stop => stops.push(stop.pos));
-  });
-  return stops;
+import { WALK_SPEED_MS } from '@/shared/data/adapters/routingAdapter';
+
+import {
+  routeWalking,
+  WalkingRouteNotFoundError,
+} from '@/shared/services/walkingRoutingClient';
+
+import type {
+  FirstMileStopResult,
+  GeoPoint,
+  WalkingRoute,
+} from './types';
+
+export const DEFAULT_FIRST_MILE_THRESHOLD_MINUTES = 15;
+
+const EARTH_RADIUS_METRES = 6_371_000;
+
+function toRadians(degrees: number): number {
+  return degrees * Math.PI / 180;
 }
 
-// Prototype-only Euclidean search. Epic 3 should replace this with pedestrian-network routing.
-export function findNearbyStops(origin: MapPoint, stops: MapPoint[], radius = 80): MapPoint[] {
-  return stops.filter(stop => Math.hypot(stop.x - origin.x, stop.y - origin.y) <= radius);
+/**
+ * Used ONLY as a safe candidate pre-filter.
+ *
+ * It is never shown to the user as walking distance.
+ * Any route that can be walked within the threshold must also have a
+ * straight-line separation below that threshold.
+ */
+function straightLineMetres(
+  a: GeoPoint,
+  b: GeoPoint,
+): number {
+  const lat1 = toRadians(a.lat);
+  const lat2 = toRadians(b.lat);
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(dLon / 2) ** 2;
+
+  return (
+    2 *
+    EARTH_RADIUS_METRES *
+    Math.asin(Math.sqrt(h))
+  );
+}
+
+function stopPoint(stop: RailStop): GeoPoint {
+  return {
+    lat: stop.lat,
+    lon: stop.lon,
+  };
+}
+
+/**
+ * Finds GTFS stations that could physically be reachable within the
+ * selected walking threshold.
+ *
+ * This is only a performance filter. Final distance/time always come
+ * from OTP's pedestrian routing.
+ */
+function candidateStops(
+  origin: GeoPoint,
+  thresholdMinutes: number,
+): RailStop[] {
+  const theoreticalMaximumMetres =
+    thresholdMinutes * 60 * WALK_SPEED_MS;
+
+  return loadRailStops().filter(stop =>
+    straightLineMetres(
+      origin,
+      stopPoint(stop),
+    ) <= theoreticalMaximumMetres,
+  );
+}
+
+async function routeToStop(
+  origin: GeoPoint,
+  stop: RailStop,
+  signal: AbortSignal,
+): Promise<FirstMileStopResult> {
+  const directDistance = straightLineMetres(
+    origin,
+    stopPoint(stop),
+  );
+
+  let route: WalkingRoute;
+
+  // If the origin itself is effectively the station, do not ask OTP to
+  // generate a meaningless few-metre route.
+  if (directDistance < 10) {
+    route = {
+      distanceMeters: 0,
+      durationSeconds: 0,
+      geometry: [origin],
+    };
+  } else {
+    route = await routeWalking(
+      origin,
+      stopPoint(stop),
+      signal,
+    );
+  }
+
+  return {
+    stop,
+    lines: linesForStop(stop),
+    route,
+  };
+}
+
+/**
+ * AC 3.1.1–3.1.5
+ *
+ * Returns every usable rail station reachable through the real
+ * pedestrian network within the chosen threshold.
+ *
+ * Results are alphabetical deliberately: Epic 3 requires neutral
+ * comparison, not "best stop" ranking.
+ */
+export async function computeFirstMileAccess(
+  origin: GeoPoint,
+  thresholdMinutes = DEFAULT_FIRST_MILE_THRESHOLD_MINUTES,
+  signal: AbortSignal,
+): Promise<{
+  stops: FirstMileStopResult[];
+  unroutableCandidateCount: number;
+}> {
+  const candidates = candidateStops(
+    origin,
+    thresholdMinutes,
+  );
+
+  const settled = await Promise.allSettled(
+    candidates.map(stop =>
+      routeToStop(origin, stop, signal),
+    ),
+  );
+
+  if (signal.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
+  let unroutableCandidateCount = 0;
+
+  const routed: FirstMileStopResult[] = [];
+
+  for (const result of settled) {
+    if (result.status === 'rejected') {
+      if (
+        result.reason instanceof WalkingRouteNotFoundError
+      ) {
+        unroutableCandidateCount++;
+        continue;
+      }
+
+      // A single unroutable station should not destroy all other results.
+      unroutableCandidateCount++;
+      continue;
+    }
+
+    if (
+      result.value.route.durationSeconds <=
+      thresholdMinutes * 60
+    ) {
+      routed.push(result.value);
+    }
+  }
+
+  // AC 3.2.2 — neutral ordering, not fastest/closest/recommended.
+  routed.sort((a, b) =>
+    a.stop.name.localeCompare(b.stop.name),
+  );
+
+  return {
+    stops: routed,
+    unroutableCandidateCount,
+  };
 }

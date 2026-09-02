@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-30T08:41:54.243Z",
+  "generatedAt": "2026-09-02T03:59:53.186Z",
   "feeds": [
     {
       "feedId": "prasarana-rapid-rail-kl",
@@ -114,7 +114,49 @@
           "longName": "LRT Ampang Line",
           "mode": "LRT",
           "color": "#e57200",
-          "stopCount": 18
+          "stopCount": 18,
+          "frequency": {
+            "minHeadwaySeconds": 180,
+            "maxHeadwaySeconds": 300,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 180
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 180
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "23:25:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "23:25:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "23:25:00",
+                "headwaySeconds": 300
+              }
+            ]
+          }
         },
         {
           "routeId": "KJ",
@@ -122,7 +164,55 @@
           "longName": "LRT Kelana Jaya Line",
           "mode": "LRT",
           "color": "#D50032",
-          "stopCount": 37
+          "stopCount": 37,
+          "frequency": {
+            "minHeadwaySeconds": 240,
+            "maxHeadwaySeconds": 420,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "7:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "7:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 240
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 240
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "23:15:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "23:15:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "23:15:00",
+                "headwaySeconds": 420
+              }
+            ]
+          }
         },
         {
           "routeId": "PH",
@@ -130,7 +220,49 @@
           "longName": "LRT Sri Petaling Line",
           "mode": "LRT",
           "color": "#76232f",
-          "stopCount": 29
+          "stopCount": 29,
+          "frequency": {
+            "minHeadwaySeconds": 180,
+            "maxHeadwaySeconds": 300,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 180
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 180
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 300
+              }
+            ]
+          }
         },
         {
           "routeId": "KGL",
@@ -138,7 +270,49 @@
           "longName": "MRT Kajang Line",
           "mode": "MRT",
           "color": "#047940",
-          "stopCount": 29
+          "stopCount": 29,
+          "frequency": {
+            "minHeadwaySeconds": 360,
+            "maxHeadwaySeconds": 600,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 360
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 360
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "22:55:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "22:55:00",
+                "headwaySeconds": 600
+              }
+            ]
+          }
         },
         {
           "routeId": "PYL",
@@ -146,7 +320,97 @@
           "longName": "MRT Putrajaya Line",
           "mode": "MRT",
           "color": "#FFCD00",
-          "stopCount": 36
+          "stopCount": 36,
+          "frequency": {
+            "minHeadwaySeconds": 240,
+            "maxHeadwaySeconds": 840,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "7:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "7:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 300
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "22:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "22:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 720
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "7:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "7:00:00",
+                "endTime": "9:30:00",
+                "headwaySeconds": 240
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:30:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:30:00",
+                "headwaySeconds": 240
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:30:00",
+                "endTime": "22:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "22:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 840
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "22:55:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "22:55:00",
+                "headwaySeconds": 600
+              }
+            ]
+          }
         },
         {
           "routeId": "MR",
@@ -154,7 +418,49 @@
           "longName": "KL Monorail Line",
           "mode": "MRL",
           "color": "#84bd00",
-          "stopCount": 11
+          "stopCount": 11,
+          "frequency": {
+            "minHeadwaySeconds": 420,
+            "maxHeadwaySeconds": 720,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 420
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "23:30:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "23:30:00",
+                "headwaySeconds": 720
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "23:30:00",
+                "headwaySeconds": 720
+              }
+            ]
+          }
         },
         {
           "routeId": "BRT",
@@ -162,7 +468,55 @@
           "longName": "BRT Sunway Line",
           "mode": "BRT",
           "color": "#115740",
-          "stopCount": 7
+          "stopCount": 7,
+          "frequency": {
+            "minHeadwaySeconds": 240,
+            "maxHeadwaySeconds": 480,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "7:00:00",
+                "headwaySeconds": 480
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "7:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 240
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "17:00:00",
+                "headwaySeconds": 480
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "17:00:00",
+                "endTime": "19:00:00",
+                "headwaySeconds": 240
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 480
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 360
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 360
+              }
+            ]
+          }
         },
         {
           "routeId": "SA",
@@ -170,7 +524,73 @@
           "longName": "LRT Shah Alam Line",
           "mode": "LRT",
           "color": "#00A9E0",
-          "stopCount": 20
+          "stopCount": 20,
+          "frequency": {
+            "minHeadwaySeconds": 480,
+            "maxHeadwaySeconds": 600,
+            "windows": [
+              {
+                "serviceId": "MonFri",
+                "startTime": "6:00:00",
+                "endTime": "7:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "7:00:00",
+                "endTime": "9:00:00",
+                "headwaySeconds": 480
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "9:00:00",
+                "endTime": "16:30:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "16:30:00",
+                "endTime": "19:30:00",
+                "headwaySeconds": 480
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:30:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "MonFri",
+                "startTime": "19:30:00",
+                "endTime": "23:40:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "24:00:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sat",
+                "startTime": "6:00:00",
+                "endTime": "23:40:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "23:30:00",
+                "headwaySeconds": 600
+              },
+              {
+                "serviceId": "Sun",
+                "startTime": "6:00:00",
+                "endTime": "23:10:00",
+                "headwaySeconds": 600
+              }
+            ]
+          }
         }
       ]
     }

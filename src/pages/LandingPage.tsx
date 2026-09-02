@@ -3,7 +3,6 @@ import { ArrowRight, Clock, MapPin, Train, Building2, Gauge, Sparkles, TrendingU
 import { TransitMap, ReachabilityLayer, OriginMarker } from '@/shared/map';
 import { LocationSearch } from '@/features/reachability';
 import { WalkingRouteLayer } from '@/features/first-mile';
-import { findNearbyStops } from '@/features/first-mile/firstMileService';
 import { ServiceMarker } from '@/features/essential-services';
 import { generateReachPolygon, mapAreaToKm2 } from '@/shared/data/mock/reachability';
 import { polygonArea } from '@/shared/lib/spatial';
@@ -12,6 +11,27 @@ import { SERVICES, TRANSIT_LINES, CITY_CENTER } from '@/shared/data';
 import type { RailStop } from '@/features/reachability';
 import type { MapPoint } from '@/shared/types/location';
 import type { PageId } from '@/app/routes';
+
+/**
+ * Landing-page visual preview only.
+ *
+ * This uses the prototype SVG's {x, y} coordinates and must not be used
+ * for Epic 3 first-mile results. Real first-mile distance/time is routed
+ * through OTP over the OSM pedestrian network.
+ */
+function findNearbyPreviewStops(
+  origin: MapPoint,
+  stops: MapPoint[],
+  radius = 80,
+): MapPoint[] {
+  return stops.filter(
+    stop =>
+      Math.hypot(
+        stop.x - origin.x,
+        stop.y - origin.y,
+      ) <= radius,
+  );
+}
 
 interface LandingPageProps {
   onNavigate: (page: PageId) => void;
@@ -46,7 +66,10 @@ export function LandingPage({ onNavigate, onSearchSelect }: LandingPageProps) {
     TRANSIT_LINES.forEach(line => line.stops.forEach(stop => stops.push(stop.pos)));
     return stops;
   }, []);
-  const nearby = useMemo(() => findNearbyStops(origin, allStops, 70), [origin, allStops]);
+  const nearby = useMemo(
+    () => findNearbyPreviewStops(origin, allStops, 70),
+    [origin, allStops],
+  );
   const reachableServices = useMemo(
     () => SERVICES.filter(s => {
       const dx = s.pos.x - origin.x, dy = s.pos.y - origin.y;
