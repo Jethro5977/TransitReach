@@ -6,7 +6,6 @@ import {
 
 import {
   computeFirstMileAccess,
-  DEFAULT_FIRST_MILE_THRESHOLD_MINUTES,
 } from '../firstMileService';
 
 import type {
@@ -16,14 +15,8 @@ import type {
 
 export function useFirstMile(
   origin: GeoPoint | null,
+  thresholdMinutes: number,
 ) {
-  const [
-    thresholdMinutes,
-    setThresholdMinutes,
-  ] = useState(
-    DEFAULT_FIRST_MILE_THRESHOLD_MINUTES,
-  );
-
   const [state, setState] =
     useState<FirstMileState>({
       status: 'idle',
@@ -93,16 +86,13 @@ export function useFirstMile(
     return (
       state.stops.find(
         result =>
-          result.stop.stopId ===
-          selectedStopId,
+          result.stop.stopId === selectedStopId,
       ) ?? null
     );
   }, [state, selectedStopId]);
 
   return {
     state,
-    thresholdMinutes,
-    setThresholdMinutes,
     selectedStopId,
     setSelectedStopId,
     selectedStop,
