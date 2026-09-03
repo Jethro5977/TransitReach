@@ -1,4 +1,5 @@
 import type { RailStop } from '@/shared/data/adapters/gtfsAdapter';
+import type { OsmPlace } from '@/shared/data/adapters/osmAdapter';
 
 /**
  * A real-world position. Distinct from the prototype's MapPoint {x, y}, which is a
@@ -10,7 +11,7 @@ export interface LatLng {
 }
 
 /** How the user set the starting point. */
-export type OriginSource = 'stop' | 'map' | 'device';
+export type OriginSource = 'stop' | 'place' | 'map' | 'device';
 
 /**
  * The starting point of a reachability query. Exactly one exists at a time
@@ -21,6 +22,8 @@ export interface Origin {
   source: OriginSource;
   /** Present only when source === 'stop'. */
   stop?: RailStop;
+  /** Present only when source === 'place'. */
+  place?: OsmPlace;
 }
 
-export type { RailStop };
+export type { RailStop, OsmPlace };
