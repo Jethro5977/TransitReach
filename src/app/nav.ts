@@ -26,7 +26,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'landing', label: 'Home', icon: Home },
   { id: 'map', label: 'Map', icon: Map },
   { id: 'services', label: 'Services', icon: Building2 },
-  { id: 'time', label: 'Time', icon: Clock, hidden: true },
+  { id: 'time', label: 'Time', icon: Clock },
   { id: 'scenario', label: 'Scenarios', icon: Route, hidden: true },
   { id: 'typology', label: 'Typology', icon: TrendingUp, hidden: true },
   { id: 'methodology', label: 'Method', icon: BookOpen, hidden: true },
