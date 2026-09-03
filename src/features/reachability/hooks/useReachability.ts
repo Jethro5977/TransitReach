@@ -4,11 +4,12 @@ import {
   RoutingTimeoutError,
   type IsochroneResult,
 } from '@/shared/data/adapters/routingAdapter';
-import type { LatLng, Origin, RailStop } from '../types';
+import type { LatLng, Origin, OsmPlace, RailStop } from '../types';
 import { isInStudyArea } from '../reachabilityService';
 
 /** AC 1.1.2 — a click outside the covered area is rejected with this message. */
 const OUTSIDE_AREA = 'Selected point is outside the covered area';
+const PLACE_OUTSIDE_AREA = 'That place is outside the covered area';
 
 /** AC 1.1.4 — device location is optional; nothing is disabled when it is unavailable. */
 const LOCATION_UNAVAILABLE = 'Location unavailable. Search for a stop or tap the map instead.';
@@ -34,12 +35,11 @@ export type ReachabilityState =
   | { status: 'timedout'; budgetMinutes: number; limitMs: number };
 
 export function useReachability(
-  initialStop: RailStop | null,
+  /** AC 1.5.2 — a starting point carried in from the landing page, already resolved. */
+  initialOrigin: Origin | null,
   onToast: (message: string, icon?: string) => void,
 ) {
-  const [origin, setOrigin] = useState<Origin | null>(
-    initialStop ? { at: { lat: initialStop.lat, lon: initialStop.lon }, source: 'stop', stop: initialStop } : null,
-  );
+  const [origin, setOrigin] = useState<Origin | null>(initialOrigin);
   const [timeBudget, setTimeBudget] = useState(DEFAULT_TIME_BUDGET);
   const [state, setState] = useState<ReachabilityState>({ status: 'idle' });
 
@@ -99,6 +99,24 @@ export function useReachability(
   };
 
   /**
+   * Selecting a named place puts the origin at its coordinate from the committed OSM
+   * extract. No lookup happens — the position was resolved at build time.
+   *
+   * The study-area guard is redundant while the extract is built from the same bounding
+   * box, and is kept anyway: it costs one comparison, and it turns a bad regenerated
+   * extract into a visible message rather than an origin the engine silently cannot route
+   * from.
+   */
+  const selectPlace = (place: OsmPlace) => {
+    const at = { lat: place.lat, lon: place.lon };
+    if (!isInStudyArea(at)) {
+      onToast(PLACE_OUTSIDE_AREA, '!');
+      return;
+    }
+    setOrigin({ at, source: 'place', place });
+  };
+
+  /**
    * AC 1.1.2 — sets the origin at an arbitrary in-area coordinate. A stop need not be
    * nearby. Out of area, the previous origin is retained rather than cleared.
    */
@@ -149,6 +167,7 @@ export function useReachability(
     timeBudget,
     state,
     selectStop,
+    selectPlace,
     selectPoint,
     requestDeviceLocation,
     clearOrigin,
