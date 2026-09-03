@@ -7,6 +7,8 @@ import 'leaflet/dist/leaflet.css';
 import type { IsochroneRegion } from '@/shared/data/adapters/routingAdapter';
 import type { LatLng, Origin } from '../types';
 import { NETWORK_CENTRE } from '../reachabilityService';
+import type { ServiceLocation } from '@/shared/types/service';
+import { CATEGORY_META } from '@/shared/data';
 
 /**
  * OpenStreetMap raster tiles.
@@ -41,6 +43,9 @@ interface BaseMapProps {
   /** Disjoint reachable regions, or null when there is nothing to draw. */
   regions: IsochroneRegion[] | null;
   onMapClick: (at: LatLng) => void;
+  services?: ServiceLocation[];
+  selectedServiceId?: string | null;
+  onServiceSelect?: (service: ServiceLocation) => void;
   children?: ReactNode;
 }
 
@@ -163,7 +168,27 @@ function ReachabilityLayer({ regions }: { regions: IsochroneRegion[] }) {
   );
 }
 
-export function BaseMap({ origin, regions, onMapClick, children, }: BaseMapProps) {
+function ServicePins({ services, selectedServiceId, onServiceSelect }: Pick<BaseMapProps, 'services' | 'selectedServiceId' | 'onServiceSelect'>) {
+  return <>
+    {(services ?? []).map(service => {
+      if (service.lat === undefined || service.lon === undefined) return null;
+      const color = CATEGORY_META[service.category].color;
+      const selected = service.id === selectedServiceId;
+      return (
+        <CircleMarker
+          key={service.id}
+          center={[service.lat, service.lon]}
+          radius={selected ? 9 : 6}
+          pane="markerPane"
+          pathOptions={{ color, fillColor: color, fillOpacity: selected ? 0.95 : 0.7, weight: selected ? 3 : 1.5 }}
+          eventHandlers={{ click: () => onServiceSelect?.(service) }}
+        />
+      );
+    })}
+  </>;
+}
+
+export function BaseMap({ origin, regions, onMapClick, services, selectedServiceId, onServiceSelect, children, }: BaseMapProps) {
   return (
     <MapContainer
       center={[NETWORK_CENTRE.lat, NETWORK_CENTRE.lon]}
@@ -178,6 +203,7 @@ export function BaseMap({ origin, regions, onMapClick, children, }: BaseMapProps
       <ViewController origin={origin} />
       {/* The area is drawn first so the origin pin sits above the fill (AC 1.3.1). */}
       {regions && <ReachabilityLayer regions={regions} />}
+      <ServicePins services={services} selectedServiceId={selectedServiceId} onServiceSelect={onServiceSelect} />
       {children}
       {origin && <OriginPin at={origin.at} />}
     </MapContainer>

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Baby,
   Utensils,
+  HelpCircle,
 } from 'lucide-react';
 import type { ServiceCategory, ServiceCategoryMeta, ServiceLocation } from '@/shared/types/service';
 
@@ -25,10 +26,12 @@ export const CATEGORY_META: Record<ServiceCategory, ServiceCategoryMeta> = {
   police:     { id: 'police',    label: 'Police',          icon: ShieldCheck,    color: '#3b82f6', colorLight: '#dbeafe' },
   childcare:  { id: 'childcare', label: 'Childcare',       icon: Baby,           color: '#ec4899', colorLight: '#fce7f3' },
   food:       { id: 'food',       label: 'Food & Meals',    icon: Utensils,       color: '#f97316', colorLight: '#ffedd5' },
+  other:      { id: 'other',      label: 'Other services', icon: HelpCircle,      color: '#64748b', colorLight: '#f1f5f9' },
 };
 
 export const CATEGORY_ORDER: ServiceCategory[] = [
   'hospital', 'clinic', 'pharmacy', 'school', 'market', 'govt', 'park', 'bank', 'police', 'childcare', 'food',
+  'other',
 ];
 
 function svc(

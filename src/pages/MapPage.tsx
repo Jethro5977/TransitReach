@@ -20,7 +20,17 @@ import {
 import { linesForStop } from '@/shared/data/adapters/gtfsAdapter';
 
 // Epic3
-import {FirstMileMapLayer, useFirstMile, } from '@/features/first-mile';
+import {
+  FirstMileMapLayer,
+  NearbyStopsPanel,
+  LiveTransitMapLayer,
+  LiveTransitStatus,
+  BusStopMapLayer,
+  busStopsNearAccessibleStations,
+  useFirstMile,
+  useLiveTransit,
+} from '@/features/first-mile';
+
 import {MapAnalysisPanel,type MapAnalysisTab,} from './components/MapAnalysisPanel';
 
 interface MapPageProps {
@@ -35,6 +45,19 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
     onToast,
   );
   const firstMile = useFirstMile(reach.origin?.at ?? null, reach.timeBudget,);
+  const accessibleStops =
+  firstMile.state.status ===
+  'ready'
+    ? firstMile.state.stops
+    : [];
+
+  const liveTransit =
+    useLiveTransit(
+      accessibleStops,
+      firstMile.state.status ===
+        'ready',
+    );
+  const nearbyBusStops = busStopsNearAccessibleStations(accessibleStops,);
   const [analysisTab, setAnalysisTab,] = useState<MapAnalysisTab>('first-mile');
 
   return (
@@ -45,28 +68,53 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
         <BaseMap
           origin={reach.origin}
           regions={
-            reach.state.status === 'ready'
-              ? reach.state.result.regions
+            reach.state.status ===
+            'ready'
+              ? reach.state
+                  .result.regions
               : null
           }
-          onMapClick={reach.selectPoint}
+          onMapClick={
+            reach.selectPoint
+          }
         >
-          {analysisTab === 'first-mile' &&
-            firstMile.state.status ===
-              'ready' && (
-              <FirstMileMapLayer
-                stops={
-                  firstMile.state.stops
-                }
-                selectedStopId={
-                  firstMile.selectedStopId
-                }
-                onSelect={
-                  firstMile.setSelectedStopId
-                }
-              />
-            )}
+          {firstMile.state.status ===
+            'ready' && (
+            <FirstMileMapLayer
+              stops={
+                firstMile.state
+                  .stops
+              }
+              selectedStopId={
+                firstMile
+                  .selectedStopId
+              }
+              onSelect={
+                firstMile
+                  .setSelectedStopId
+              }
+            />
+          )}
+          {nearbyBusStops.length >
+            0 && (
+            <BusStopMapLayer
+              stops={
+                nearbyBusStops
+              }
+            />
+          )}
+          {liveTransit.status !==
+            'idle' && (
+            <LiveTransitMapLayer
+              vehicles={
+                liveTransit.vehicles
+              }
+            />
+          )}
         </BaseMap>
+        <LiveTransitStatus
+          state={liveTransit}
+        />
       </div>
 
       <MapAnalysisPanel

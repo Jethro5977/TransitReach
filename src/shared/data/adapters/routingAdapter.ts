@@ -44,6 +44,8 @@ export const DEPARTURE_TIME = '2026-09-01T08:00:00+08:00';
 export const DEPARTURE_TIME_LABEL = 'Tuesday 08:00';
 export const DEPARTURE_TIME_IS_PROVISIONAL = true;
 
+export type TravelMode = 'walking' | 'transit' | 'multimodal';
+
 /**
  * Walking speed OTP is configured with, in metres per second.
  * Mirrors `routingDefaults.walk.speed` in routing/otp/router-config.json.
@@ -184,12 +186,13 @@ async function fetchIsochrone(
   origin: { lat: number; lon: number },
   budgetMinutes: number,
   modes: string,
+  departureTime: string,
   signal: AbortSignal,
 ): Promise<IsochroneRegion[]> {
   const url =
     `${BASE_URL}/otp/traveltime/isochrone?batch=true` +
     `&location=${origin.lat},${origin.lon}` +
-    `&time=${encodeURIComponent(DEPARTURE_TIME)}` +
+    `&time=${encodeURIComponent(departureTime)}` +
     `&modes=${modes}&arriveBy=false&cutoff=${budgetMinutes}M`;
 
   let response: Response;
@@ -229,6 +232,8 @@ export async function computeReachability(
   origin: { lat: number; lon: number },
   budgetMinutes: number,
   signal: AbortSignal,
+  departureTime = DEPARTURE_TIME,
+  mode: TravelMode = 'multimodal',
 ): Promise<ReachabilityComputation> {
   assertSentinelUnused();
 
@@ -245,12 +250,17 @@ export async function computeReachability(
   }, COMPUTATION_TIMEOUT_MS);
 
   let full: IsochroneRegion[];
-  let walkOnly: IsochroneRegion[];
+  let walkOnly: IsochroneRegion[] = [];
   try {
-    [full, walkOnly] = await Promise.all([
-      fetchIsochrone(origin, budgetMinutes, TRANSIT_MODES, inner.signal),
-      fetchIsochrone(origin, budgetMinutes, WALK_ONLY_MODES, inner.signal),
-    ]);
+    if (mode === 'walking') {
+      full = await fetchIsochrone(origin, budgetMinutes, WALK_ONLY_MODES, departureTime, inner.signal);
+      walkOnly = full;
+    } else {
+      [full, walkOnly] = await Promise.all([
+        fetchIsochrone(origin, budgetMinutes, TRANSIT_MODES, departureTime, inner.signal),
+        fetchIsochrone(origin, budgetMinutes, WALK_ONLY_MODES, departureTime, inner.signal),
+      ]);
+    }
   } catch (error) {
     if (timedOut) throw new RoutingTimeoutError(COMPUTATION_TIMEOUT_MS);
     throw error;
@@ -264,7 +274,7 @@ export async function computeReachability(
 
   // If no service can be boarded the two computations are the same search, so their
   // areas coincide. A small tolerance absorbs contouring noise.
-  const walkingOnly = fullArea <= walkArea * 1.005;
+  const walkingOnly = mode === 'walking' || fullArea <= walkArea * 1.005;
   const regions = walkingOnly ? walkOnly : full;
 
   return {
@@ -272,7 +282,49 @@ export async function computeReachability(
     result: {
       budgetMinutes,
       regions,
-      areaKm2: walkingOnly ? walkArea : fullArea,
+      areaKm2: mode === 'walking' ? fullArea : walkingOnly ? walkArea : fullArea,
     },
   };
+}
+
+interface OtpPlanResponse {
+  plan?: { itineraries?: Array<{ duration?: number }> };
+  error?: { message?: string };
+}
+
+/**
+ * Returns the shortest OTP itinerary duration for one real OSM service coordinate.
+ * The duration includes walking access/egress, transit and schedule waiting time.
+ */
+export async function estimateTravelTime(
+  origin: { lat: number; lon: number },
+  destination: { lat: number; lon: number },
+  mode: TravelMode,
+  departureTime = DEPARTURE_TIME,
+  signal?: AbortSignal,
+): Promise<number | null> {
+  const [date, clock] = departureTime.split('T');
+  const params = new URLSearchParams({
+    fromPlace: `${origin.lat},${origin.lon}`,
+    toPlace: `${destination.lat},${destination.lon}`,
+    mode: mode === 'walking' ? 'WALK' : 'TRANSIT,WALK',
+    date,
+    time: clock.slice(0, 8),
+    arriveBy: 'false',
+    numItineraries: '1',
+    locale: 'en',
+  });
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}/otp/routers/default/plan?${params.toString()}`, { signal });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new RoutingUnavailableError('Could not reach the routing service.', error);
+  }
+  if (!response.ok) throw new RoutingUnavailableError(`Routing service returned ${response.status}.`);
+
+  const body = await response.json() as OtpPlanResponse;
+  const durationSeconds = body.plan?.itineraries?.[0]?.duration;
+  return typeof durationSeconds === 'number' ? Math.ceil(durationSeconds / 60) : null;
 }
