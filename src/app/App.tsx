@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavBar } from './NavBar';
-import { NAV_ITEMS } from './nav';
+import { VISIBLE_NAV_ITEMS } from './nav';
 import type { PageId } from './routes';
 import { ToastContainer, PageTransition } from '@/shared/ui';
 import { useToasts } from '@/shared/hooks';
@@ -11,11 +11,13 @@ import { TimeComparisonPage } from '@/pages/future/TimeComparisonPage';
 import { ScenarioPage } from '@/pages/future/ScenarioPage';
 import { TypologyPage } from '@/pages/future/TypologyPage';
 import { MethodologyPage } from '@/pages/MethodologyPage';
-import type { RailStop } from '@/features/reachability';
+import type { SearchHit } from '@/features/reachability/reachabilityService';
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>('landing');
-  const [searchResult, setSearchResult] = useState<RailStop | null>(null);
+  // AC 1.5.2 — carries a landing-page selection through to the map page. A place is
+  // carried as readily as a station, so the two searches behave identically.
+  const [searchResult, setSearchResult] = useState<SearchHit | null>(null);
   const { toasts, addToast, removeToast } = useToasts();
 
   const handleNavigate = (page: PageId) => {
@@ -23,13 +25,13 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSearchSelect = (stop: RailStop) => {
-    setSearchResult(stop);
+  const handleSearchSelect = (hit: SearchHit) => {
+    setSearchResult(hit);
   };
 
   return (
     <div className="min-h-screen bg-[#F7FAFC]">
-      <NavBar items={NAV_ITEMS} activePage={activePage} onNavigate={handleNavigate} />
+      <NavBar items={VISIBLE_NAV_ITEMS} activePage={activePage} onNavigate={handleNavigate} />
 
       <PageTransition pageKey={activePage}>
         {activePage === 'landing' && (
