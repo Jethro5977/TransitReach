@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {CircleHelp, Crosshair, Maximize2, Minimize2, X,} from 'lucide-react';import { Tooltip } from '@/shared/ui';
 import {
   BaseMap,
@@ -97,11 +98,22 @@ export function MapPage({ initialLocation, onToast }: MapPageProps) {
           viewport, so it scrolls internally rather than running off the bottom — the
           note has to stay reachable to satisfy AC 1.2.3. */}
       <div className={`absolute top-4 left-4 sm:left-6 z-[500] max-h-[calc(100%-2rem)] transition-all duration-300 ease-out ${configOpen ? 'w-[340px] max-w-[calc(100vw-2rem)]' : 'w-12'}`}>
-        <div className="glass p-4 max-h-[calc(100vh-6rem)] overflow-y-auto overflow-x-hidden scrollbar-thin">
-          <div className="flex items-center justify-between mb-3">
+        {/* Collapsed, the panel is 48px wide. p-4 would leave 16px of content box for a
+            32px button, pushing it off-centre and out of the rounded corner; p-2 leaves
+            exactly 32px. The header margin goes too, since nothing follows it. */}
+        <div className={`glass max-h-[calc(100vh-6rem)] overflow-y-auto overflow-x-hidden scrollbar-thin ${configOpen ? 'p-4' : 'p-2'}`}>
+          <div className={`flex items-center ${configOpen ? 'justify-between mb-3' : 'justify-center'}`}>
             {configOpen && <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Starting Point</h2>}
             <Tooltip content={configOpen ? 'Collapse' : 'Expand'}>
-              <button onClick={() => setConfigOpen(prev => !prev)} className="btn-icon ml-auto" style={{ width: 32, height: 32 }}>
+              {/* The tooltip is visual only, so the button needs its own name — without
+                  one a screen reader announces nothing but "button". */}
+              <button
+                onClick={() => setConfigOpen(prev => !prev)}
+                aria-label={configOpen ? 'Collapse starting point panel' : 'Expand starting point panel'}
+                aria-expanded={configOpen}
+                className="btn-icon shrink-0"
+                style={{ width: 32, height: 32 }}
+              >
                 {configOpen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
             </Tooltip>
@@ -230,6 +242,15 @@ const PANEL_GAP = 10;
 const PANEL_MARGIN = 8;
 /** Enough of the panel to be worth opening; below this it is shifted up instead. */
 const PANEL_MIN_VISIBLE = 220;
+/**
+ * Grace period before a hover-opened panel closes.
+ *
+ * The panel is portaled to document.body, so it is not a DOM descendant of the trigger:
+ * leaving the trigger fires mouseleave even when the pointer is on its way to the panel,
+ * and there is a deliberate gap between the two. Without this delay the panel disappears
+ * from under the pointer and can never be reached to read or scroll.
+ */
+const HOVER_CLOSE_DELAY_MS = 180;
 
 function BudgetCompositionHelp() {
   // Open is derived from three independent inputs rather than being a single flag that
@@ -327,11 +348,36 @@ function BudgetCompositionHelp() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
+  // Hover intent. `pointerEnter` cancels any pending close, so crossing the gap between
+  // the trigger and the panel keeps it up instead of dismissing it mid-travel.
+  const closeTimer = useRef<number | null>(null);
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+  const pointerEnter = useCallback(() => {
+    cancelClose();
+    setHovered(true);
+    setDismissed(false);
+  }, [cancelClose]);
+  const pointerLeave = useCallback(() => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => {
+      setHovered(false);
+      setPinned(false);
+      setDismissed(false);
+    }, HOVER_CLOSE_DELAY_MS);
+  }, [cancelClose]);
+
+  useEffect(() => cancelClose, [cancelClose]);
+
   return (
     <div
       className="relative inline-flex"
-      onMouseEnter={() => { setHovered(true); setDismissed(false); }}
-      onMouseLeave={() => { setHovered(false); setPinned(false); setDismissed(false); }}
+      onMouseEnter={pointerEnter}
+      onMouseLeave={pointerLeave}
     >
       <button
         ref={triggerRef}
@@ -348,10 +394,25 @@ function BudgetCompositionHelp() {
         <CircleHelp size={14} />
       </button>
 
-      {open && pos && (
+      {/*
+        Rendered through a portal into document.body, and this is load-bearing rather than
+        tidiness.
+
+        The configuration panel carries `.glass`, whose `backdrop-filter` makes it a
+        containing block for `position: fixed` descendants. Rendered in place, the panel
+        would therefore position against that box instead of the viewport, and then be
+        clipped by its `overflow-y-auto overflow-x-hidden` — the content is there, but cut
+        off and unreadable. A portal escapes both the containing block and the clip, so
+        `fixed` means what it says and the placement maths below is against the viewport.
+      */}
+      {open && pos && createPortal(
         <div
           ref={panelRef}
           role="tooltip"
+          // The panel is outside the trigger's wrapper in the DOM now, so it has to keep
+          // itself open while the pointer is over it.
+          onMouseEnter={pointerEnter}
+          onMouseLeave={pointerLeave}
           className="fixed z-[1000] rounded-xl border border-slate-200 bg-white/95 shadow-xl backdrop-blur-xl p-3.5 overflow-y-auto scrollbar-thin"
           style={{
             top: pos.top,
@@ -387,7 +448,8 @@ function BudgetCompositionHelp() {
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
